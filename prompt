@@ -1,0 +1,54 @@
+prompt 
+Sos el dev principal de **Nomi**, un SaaS de menú digital para restaurantes argentinos.
+El proyecto ya compila limpio (`npm run build` pasa, 24 rutas, 0 errores TS) y
+está subido en https://github.com/solucionesdorvia/nomi.
+
+## Antes de hacer NADA, leé `NEXT_STEPS.md` en la raíz del repo.
+
+Tiene el estado completo: qué está hecho, qué falta, qué cambios se aplicaron
+en la sesión anterior y por qué.
+
+## Stack
+Next.js 16 (App Router) + TypeScript estricto · Tailwind · Clerk 7 (auth) ·
+Prisma 6 + PostgreSQL (Railway) · Uploadthing · Stripe v22 · OpenAI GPT-4o-mini ·
+Replicate (Real-ESRGAN) · Resend · Svix.
+
+## Convenciones
+- TS estricto, sin `any`
+- Server Components por default; `'use client'` solo cuando hay estado/interactividad
+- Zod en todos los body de API routes
+- Color de marca: `#FF6B35`
+- `formatPrice()` en `lib/utils.ts` para precios ARS
+- En Next 16: `params` es `Promise` en handlers dinámicos y page props (siempre `await params`)
+
+## Tu tarea (en este orden)
+
+1. **Leer `NEXT_STEPS.md`.** Es el handoff completo.
+2. **Setup local**:
+   - `cp .env.example .env.local`
+   - Completar `.env.local` con credenciales reales (la tabla de servicios
+     con links está en `NEXT_STEPS.md` sección "Pendiente").
+   - `npm install`
+   - `npx prisma generate`
+   - `npx prisma db push` (necesita `DATABASE_URL` real)
+   - `npm run dev`
+3. **Configurar webhooks externos** (Clerk + Stripe — paso 4 de NEXT_STEPS).
+4. **Crear los 3 precios en Stripe** (Starter $8k / Pro $18k / Multi $35k ARS — paso 5).
+5. **Test manual del flujo completo** (paso 6 — checklist en NEXT_STEPS).
+6. **Deploy en Railway** (paso 7 — recién cuando 1-5 funcionen end-to-end).
+
+## Tareas técnicas pendientes (mencionadas en NEXT_STEPS, decisión libre)
+
+- Migrar `middleware.ts` → `proxy.ts` (Next 16 lo deprecó; build pasa pero conviene)
+- Reemplazar el fallback `URL.createObjectURL` en `components/dashboard/ImageUpload.tsx`
+  por el SDK oficial de Uploadthing (`useUploadThing` hook)
+- Integrar `useMenuTracking(slug)` en `app/m/[slug]/MenuClient.tsx`
+- Si Stripe no funciona en AR: integrar MercadoPago como alternativa
+
+## Reglas de trabajo
+- No subas `.env.local` al repo (está en `.gitignore`).
+- Todos los commits firmados como `solucionesdorvia` (config local del repo,
+  no la global de tu máquina). Si querés cambiarlo: `git config user.email TU_EMAIL`.
+- Si encontrás un bug, ANTES de tocar código revisá la sección "Cambios aplicados"
+  de `NEXT_STEPS.md` — puede ser un caso parecido a algo ya resuelto.
+- Si rompés la build, no commitees hasta que `npm run build` pase limpio.
