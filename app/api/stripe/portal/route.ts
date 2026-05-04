@@ -1,6 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 
 export async function POST() {
@@ -17,7 +17,7 @@ export async function POST() {
       return NextResponse.json({ error: 'No hay suscripción activa' }, { status: 400 })
     }
 
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await getStripe().billingPortal.sessions.create({
       customer: business.stripeCustomerId,
       return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings`,
     })

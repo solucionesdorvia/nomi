@@ -1,6 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { stripe, PLANS, type PlanId } from '@/lib/stripe'
+import { getStripe, PLANS, type PlanId } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     // Crear o recuperar customer de Stripe
     let customerId = business.stripeCustomerId
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: business.email,
         metadata: { clerkId: userId, businessId: business.id },
       })
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       })
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],

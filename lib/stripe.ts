@@ -1,9 +1,21 @@
 import Stripe from 'stripe'
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-04-22.dahlia',
-  typescript: true,
-})
+// Lazy: evita instanciar el cliente en build time si STRIPE_SECRET_KEY no esta seteada.
+// Tira un error claro recien si alguien intenta usarlo sin config.
+let _stripe: Stripe | null = null
+
+export function getStripe(): Stripe {
+  if (_stripe) return _stripe
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY no esta configurada en el entorno')
+  }
+  _stripe = new Stripe(key, {
+    apiVersion: '2026-04-22.dahlia',
+    typescript: true,
+  })
+  return _stripe
+}
 
 export const PLANS = {
   STARTER: {
