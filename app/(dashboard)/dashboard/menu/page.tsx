@@ -128,7 +128,16 @@ export default function MenuPage() {
         </button>
       </div>
 
-      <PosterModal open={posterOpen} onClose={() => setPosterOpen(false)} />
+      <PosterModal
+        open={posterOpen}
+        onClose={() => setPosterOpen(false)}
+        items={categories.flatMap(c => c.items.map(i => ({
+          id: i.id,
+          name: i.name,
+          categoryName: c.name,
+          hasPhoto: !!i.imageUrl,
+        })))}
+      />
 
       {/* Categorías */}
       <div className="space-y-4">
