@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import Image from 'next/image'
 import { Upload, X, Loader2, Sparkles } from 'lucide-react'
+import { useUploadThing } from '@/lib/uploadthing-client'
 
 interface ImageUploadProps {
   value?: string | null
@@ -24,32 +25,30 @@ export default function ImageUpload({
   aspectRatio = 'square',
   endpoint,
 }: ImageUploadProps) {
-  const [uploading, setUploading] = useState(false)
   const [enhancing, setEnhancing] = useState(false)
   const [showAi, setShowAi] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const { startUpload, isUploading } = useUploadThing(endpoint, {
+    onClientUploadComplete: (res) => {
+      const file = res?.[0]
+      if (!file) return
+      // ufsUrl es la URL canónica desde Uploadthing v7+; url queda como fallback.
+      const url = file.ufsUrl ?? file.url
+      if (url) onChange(url)
+    },
+    onUploadError: (err) => {
+      console.error('Uploadthing error:', err)
+      setUploadError(err.message ?? 'Error al subir la imagen')
+    },
+  })
 
   const onDrop = useCallback(async (files: File[]) => {
     const file = files[0]
     if (!file) return
-    setUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      // Usar fetch directo a uploadthing
-      const res = await fetch(`/api/uploadthing?actionType=upload&slug=${endpoint}`, {
-        method: 'POST',
-        body: formData,
-      })
-      // Fallback: usar URL.createObjectURL para preview inmediato
-      // En producción uploadthing maneja esto via su SDK
-      const objectUrl = URL.createObjectURL(file)
-      onChange(objectUrl)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setUploading(false)
-    }
-  }, [endpoint, onChange])
+    setUploadError(null)
+    await startUpload([file])
+  }, [startUpload])
 
   async function handleEnhance() {
     if (!value || !onAiEnhance) return
@@ -65,7 +64,7 @@ export default function ImageUpload({
     onDrop,
     accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] },
     maxFiles: 1,
-    disabled: uploading,
+    disabled: isUploading,
   })
 
   const displayUrl = showAi && aiValue ? aiValue : value
@@ -146,7 +145,7 @@ export default function ImageUpload({
           }`}
         >
           <input {...getInputProps()} />
-          {uploading ? (
+          {isUploading ? (
             <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
           ) : (
             <>
@@ -158,6 +157,10 @@ export default function ImageUpload({
             </>
           )}
         </div>
+      )}
+
+      {uploadError && (
+        <p className="text-xs text-red-600">{uploadError}</p>
       )}
     </div>
   )

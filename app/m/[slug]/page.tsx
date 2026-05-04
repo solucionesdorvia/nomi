@@ -28,5 +28,5 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
 
   if (!business || !business.menus[0]) notFound()
 
-  return <MenuClient business={business} menu={business.menus[0]} />
+  return <MenuClient slug={slug} business={business} menu={business.menus[0]} />
 }

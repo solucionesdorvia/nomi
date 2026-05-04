@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { Search, Star, Leaf, Wheat, Flame, Zap } from 'lucide-react'
+import { useMenuTracking } from '@/hooks/useMenuTracking'
 
 type Branding = {
   primaryColor: string
@@ -37,11 +38,13 @@ const TAG_ICONS: Record<string, any> = {
   'Nuevo': Zap,
 }
 
-export default function MenuClient({ business, menu }: { business: Business; menu: Menu }) {
+export default function MenuClient({ slug, business, menu }: { slug: string; business: Business; menu: Menu }) {
   const b = business.branding
   const [search, setSearch] = useState('')
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+
+  useMenuTracking(slug)
 
   const primary = b?.primaryColor ?? '#1a1a1a'
   const accent = b?.accentColor ?? '#FF6B35'
@@ -303,9 +306,3 @@ export default function MenuClient({ business, menu }: { business: Business; men
   )
 }
 
-// Tracking helper (agregar al inicio del componente)
-// useEffect(() => {
-//   const device = window.innerWidth < 768 ? 'mobile' : 'desktop'
-//   fetch('/api/analytics', { method: 'POST', headers: {'Content-Type':'application/json'},
-//     body: JSON.stringify({ slug, event: 'menu_view', device }) })
-// }, [])

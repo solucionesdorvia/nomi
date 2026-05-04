@@ -124,17 +124,18 @@ Para que la build pasara con las versiones de `package.json`:
 
 ## Notas / decisiones abiertas
 
-- **Middleware deprecation warning**: Next 16 marca `middleware.ts` como
-  deprecado a favor de `proxy.ts`. La build pasa igual pero conviene migrar
-  cuando convenga (renombrar archivo, ver
-  https://nextjs.org/docs/messages/middleware-to-proxy).
+- ~~**Middleware deprecation warning**~~ RESUELTO: `middleware.ts` renombrado
+  a `proxy.ts` (Next 16 file convention). El default export sigue funcionando
+  con `clerkMiddleware()`. Build sin warnings.
 
-- **Uploadthing**: `components/dashboard/ImageUpload.tsx` usa un fallback con
-  `URL.createObjectURL` para preview. Para production, integrar el SDK oficial
-  con `useUploadThing` hook.
+- ~~**Uploadthing**~~ RESUELTO: `components/dashboard/ImageUpload.tsx` ahora usa
+  `useUploadThing()` del SDK oficial (`@uploadthing/react`) via el helper tipado
+  en `lib/uploadthing-client.ts`. Devuelve `ufsUrl` (canonical en v7+) con
+  fallback a `url`. Maneja error con mensaje en UI.
 
-- **Analytics tracking**: hay un hook `hooks/useMenuTracking.ts` listo para
-  usar — falta agregar `useMenuTracking(slug)` al inicio de `MenuClient.tsx`.
+- ~~**Analytics tracking**~~ RESUELTO: `MenuClient` ahora recibe `slug` como
+  prop desde `app/m/[slug]/page.tsx` y llama a `useMenuTracking(slug)` al
+  montar.
 
 - **CRLF/LF warnings al hacer git add**: normal en Windows. Si molesta,
   agregar `.gitattributes` con `* text=auto eol=lf`.
