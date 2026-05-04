@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp, Star, Eye, EyeOff } from 'lucide-react'
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp, Star, Eye, EyeOff, Sparkles } from 'lucide-react'
+import PosterModal from '@/components/dashboard/PosterModal'
 
 type Item = {
   id: string
@@ -31,6 +32,7 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true)
   const [newCatName, setNewCatName] = useState('')
   const [addingCat, setAddingCat] = useState(false)
+  const [posterOpen, setPosterOpen] = useState(false)
 
   useEffect(() => { loadMenu() }, [])
 
@@ -117,7 +119,16 @@ export default function MenuPage() {
             {categories.length} categorías · {categories.reduce((a, c) => a + c.items.length, 0)} platos
           </p>
         </div>
+        <button
+          onClick={() => setPosterOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium rounded-xl hover:opacity-90 shadow-sm shadow-orange-500/30 transition-opacity"
+        >
+          <Sparkles className="w-4 h-4" />
+          Generar póster
+        </button>
       </div>
+
+      <PosterModal open={posterOpen} onClose={() => setPosterOpen(false)} />
 
       {/* Categorías */}
       <div className="space-y-4">
