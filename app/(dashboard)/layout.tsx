@@ -6,13 +6,14 @@ import { UserButton } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, UtensilsCrossed, Palette,
-  QrCode, Settings, BarChart2, ChevronRight, Share2,
+  QrCode, Settings, BarChart2, ChevronRight, Share2, Wand2,
 } from 'lucide-react'
 
 const nav = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
   { href: '/dashboard/menu', label: 'Mi carta', icon: UtensilsCrossed },
   { href: '/dashboard/branding', label: 'Branding', icon: Palette },
+  { href: '/dashboard/imagenes', label: 'Imágenes IA', icon: Wand2 },
   { href: '/dashboard/qr', label: 'Código QR', icon: QrCode },
   { href: '/dashboard/social', label: 'Redes sociales', icon: Share2 },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart2 },
