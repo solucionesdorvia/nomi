@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { Check, Loader2, AlertCircle } from 'lucide-react'
+import ImageUpload from '@/components/dashboard/ImageUpload'
 
 const FONTS = ['Inter', 'Playfair Display', 'Lato', 'Montserrat', 'Merriweather', 'Nunito', 'Raleway', 'Poppins']
 const STYLES = [
@@ -14,6 +16,7 @@ const STYLES = [
 const DEFAULT_FORM = {
   name: '',
   slug: '',
+  logoUrl: '' as string,
   primaryColor: '#1a1a1a',
   accentColor: '#FF6B35',
   secondaryColor: '#ffffff',
@@ -41,6 +44,7 @@ export default function BrandingPage() {
         setForm({
           name: data.name ?? '',
           slug: data.slug ?? '',
+          logoUrl: data.branding?.logoUrl ?? '',
           primaryColor: data.branding?.primaryColor ?? DEFAULT_FORM.primaryColor,
           accentColor: data.branding?.accentColor ?? DEFAULT_FORM.accentColor,
           secondaryColor: data.branding?.secondaryColor ?? DEFAULT_FORM.secondaryColor,
@@ -73,10 +77,12 @@ export default function BrandingPage() {
     setStatus('saving')
     setErrorMsg(null)
     try {
+      // Si el logoUrl es string vacio, lo mandamos como null (el schema espera URL valida o null).
+      const payload = { ...form, logoUrl: form.logoUrl?.trim() ? form.logoUrl : null }
       const res = await fetch('/api/business', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -109,6 +115,23 @@ export default function BrandingPage() {
       <div className="grid grid-cols-2 gap-8">
         {/* Formulario */}
         <div className="space-y-6">
+          {/* Logo */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Logo</label>
+            <p className="text-xs text-neutral-400 mb-3">
+              Aparece en el menú público y en el póster generado. PNG con fondo transparente queda mejor.
+            </p>
+            <div className="max-w-[180px]">
+              <ImageUpload
+                value={form.logoUrl || null}
+                onChange={(url) => set('logoUrl', url)}
+                label="Subir logo"
+                aspectRatio="square"
+                endpoint="businessLogo"
+              />
+            </div>
+          </div>
+
           {/* Nombre */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre del local *</label>
@@ -232,12 +255,35 @@ export default function BrandingPage() {
               className="p-6 text-center"
               style={{ backgroundColor: form.primaryColor }}
             >
-              <div
-                className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl"
-                style={{ backgroundColor: form.accentColor }}
-              >
-                🍽️
-              </div>
+              {form.logoUrl ? (
+                <div
+                  className="w-16 h-16 mx-auto mb-3 overflow-hidden"
+                  style={{
+                    borderRadius: form.style === 'elegant' || form.style === 'minimal' ? 0 : 9999,
+                    border: `2px solid ${form.secondaryColor}33`,
+                    backgroundColor: form.secondaryColor + '0d',
+                  }}
+                >
+                  <Image
+                    src={form.logoUrl}
+                    alt={form.name || 'Logo'}
+                    width={64}
+                    height={64}
+                    className="object-cover w-full h-full"
+                  />
+                </div>
+              ) : (
+                <div
+                  className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl font-bold"
+                  style={{
+                    backgroundColor: form.accentColor,
+                    color: form.secondaryColor,
+                    fontFamily: form.fontHeading,
+                  }}
+                >
+                  {form.name?.slice(0, 1).toUpperCase() || 'N'}
+                </div>
+              )}
               <h2
                 className="text-xl font-bold"
                 style={{
