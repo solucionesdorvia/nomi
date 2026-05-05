@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { Check, Loader2, AlertCircle } from 'lucide-react'
 
 const FONTS = ['Inter', 'Playfair Display', 'Lato', 'Montserrat', 'Merriweather', 'Nunito', 'Raleway', 'Poppins']
 const STYLES = [
@@ -11,23 +11,56 @@ const STYLES = [
   { id: 'minimal', label: 'Minimal', desc: 'Simple y directo' },
 ]
 
+const DEFAULT_FORM = {
+  name: '',
+  slug: '',
+  primaryColor: '#1a1a1a',
+  accentColor: '#FF6B35',
+  secondaryColor: '#ffffff',
+  fontHeading: 'Playfair Display',
+  fontBody: 'Inter',
+  style: 'modern',
+}
+
+type Status = 'idle' | 'saving' | 'saved' | 'error'
+
 export default function BrandingPage() {
-  const router = useRouter()
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({
-    name: '',
-    slug: '',
-    primaryColor: '#1a1a1a',
-    accentColor: '#FF6B35',
-    secondaryColor: '#ffffff',
-    fontHeading: 'Playfair Display',
-    fontBody: 'Inter',
-    style: 'modern',
-  })
+  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState<Status>('idle')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [form, setForm] = useState(DEFAULT_FORM)
+
+  // Precarga los datos existentes desde la DB. Sin esto, el form arrancaba
+  // con defaults y al guardar pisaba lo que el user ya tenia configurado.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/business')
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled || !data?.id) return
+        setForm({
+          name: data.name ?? '',
+          slug: data.slug ?? '',
+          primaryColor: data.branding?.primaryColor ?? DEFAULT_FORM.primaryColor,
+          accentColor: data.branding?.accentColor ?? DEFAULT_FORM.accentColor,
+          secondaryColor: data.branding?.secondaryColor ?? DEFAULT_FORM.secondaryColor,
+          fontHeading: data.branding?.fontHeading ?? DEFAULT_FORM.fontHeading,
+          fontBody: data.branding?.fontBody ?? DEFAULT_FORM.fontBody,
+          style: data.branding?.style ?? DEFAULT_FORM.style,
+        })
+      })
+      .catch(err => console.error('[branding] error precargando datos:', err))
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   function set(key: string, val: string) {
+    setStatus('idle')
     setForm(f => ({ ...f, [key]: val }))
-    if (key === 'name') {
+    // Actualizamos slug solo cuando se edita el nombre y el business es nuevo
+    // (slug vacio). Para businesses existentes NO regeneramos el slug porque
+    // las URLs publicas /m/[slug] ya pueden estar circulando.
+    if (key === 'name' && !form.slug) {
       setForm(f => ({
         ...f,
         name: val,
@@ -37,17 +70,33 @@ export default function BrandingPage() {
   }
 
   async function save() {
-    setSaving(true)
+    setStatus('saving')
+    setErrorMsg(null)
     try {
-      await fetch('/api/business', {
+      const res = await fetch('/api/business', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      router.push('/dashboard/menu')
-    } finally {
-      setSaving(false)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? `Error HTTP ${res.status}`)
+      }
+      setStatus('saved')
+      setTimeout(() => setStatus('idle'), 2500)
+    } catch (err) {
+      setStatus('error')
+      setErrorMsg(err instanceof Error ? err.message : 'Error al guardar')
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center gap-2 text-neutral-400">
+        <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+        Cargando branding...
+      </div>
+    )
   }
 
   return (
@@ -148,13 +197,27 @@ export default function BrandingPage() {
             </div>
           </div>
 
-          <button
-            onClick={save}
-            disabled={!form.name || saving}
-            className="w-full py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {saving ? 'Guardando...' : 'Guardar y continuar →'}
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={save}
+              disabled={!form.name || status === 'saving'}
+              className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                status === 'saved'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-orange-500 text-white hover:bg-orange-600'
+              }`}
+            >
+              {status === 'saving' && <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>}
+              {status === 'saved' && <><Check className="w-4 h-4" /> Guardado</>}
+              {(status === 'idle' || status === 'error') && 'Guardar branding'}
+            </button>
+            {status === 'error' && errorMsg && (
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Preview del menú */}
