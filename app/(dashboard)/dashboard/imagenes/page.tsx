@@ -36,6 +36,7 @@ export default function ImagenesPage() {
   const [photoBase64, setPhotoBase64] = useState<string | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
+  const [modelUsed, setModelUsed] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -73,6 +74,7 @@ export default function ImagenesPage() {
     setLoading(true)
     setError(null)
     setResult(null)
+    setModelUsed(null)
 
     try {
       const res = await fetch('/api/ai/imagenes', {
@@ -89,6 +91,7 @@ export default function ImagenesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `Error HTTP ${res.status}`)
       setResult(data.url)
+      setModelUsed(data.modelUsed ?? null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al generar')
     } finally {
@@ -268,6 +271,16 @@ export default function ImagenesPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={result} alt="Imagen generada" className="w-full h-full object-cover" />
               </div>
+              {modelUsed && (
+                <p className="text-xs text-neutral-400 text-center">
+                  Modelo: <span className="font-mono text-neutral-500">{modelUsed}</span>
+                  {modelUsed.includes('fallback') && (
+                    <span className="block mt-1 text-amber-600">
+                      Tu cuenta de OpenAI no tiene acceso a gpt-image-1. El fallback es menos fiel a la foto original.
+                    </span>
+                  )}
+                </p>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={download}

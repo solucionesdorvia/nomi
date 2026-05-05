@@ -21,28 +21,35 @@ const PROMPTS = {
   // Mejora REALISTA con ground truth inyectada (descripcion factual del plato).
   // Recibe `groundTruth` con lo que la imagen REALMENTE contiene para evitar alucinaciones.
   upgrade: (name: string, groundTruth: string) => `
-This is a real photograph of food taken with a phone camera. Your task: produce a PHOTOREALISTIC retouch of this EXACT same dish, as if a professional food photographer had photographed the same plate in the same restaurant moments later, with better camera and lighting.
+This is a real photograph of food taken with a phone camera. Your task: produce a PHOTOREALISTIC color/light/background retouch of this EXACT same dish. Treat this as professional photo retouching, NOT image generation.
 
-GROUND TRUTH — what this dish ACTUALLY contains (do not deviate from this):
+THIS DISH IS (use as ground truth, do NOT deviate):
 ${groundTruth}
 
-ABSOLUTE RULES (do not violate):
-- The dish itself MUST be identical to the ground truth above and to the input photo: same ingredients, same plating arrangement, same colors, same proportions, same shapes, same toppings, same garnish placement, same plate, same utensils.
-- Do NOT add ingredients that are not in the ground truth or photo.
-- Do NOT remove ingredients that ARE in the ground truth or photo.
-- Do NOT rearrange or substitute anything on the plate.
-- Do NOT invent decorative garnishes (parsley, microgreens, edible flowers) that are not visible.
-- The result must look like an UNEDITED PHOTOGRAPH, not an AI image, not a 3D render, not an illustration, not a stylized poster.
-- No fake glossy plastic-looking surfaces. No exaggerated saturation. No HDR halos. No oversharpening. No symmetric perfection. No cartoonish steam clouds.
+WHAT YOU MUST PRESERVE EXACTLY (any deviation = failed result):
+1. SAUCE: identical color, identical type, identical creaminess. If the ground truth says "rosé / pink sauce", keep it pink/orange-cream. Never convert pink sauce to red tomato sauce. Never convert tomato sauce to pink. Never make it more or less creamy.
+2. PASTA / GRAINS / BASE: keep the EXACT same type. If it's spaghetti, keep spaghetti — do NOT swap to penne, rice, noodles. If it's rice, keep rice. Same shape, same color, same length.
+3. PROTEIN: same cut, same color, same size, same cooking state.
+4. TOPPINGS: only the toppings already on the plate. Do NOT add cheese unless it was already there. Do NOT add herbs (parsley, basil, microgreens) unless visible in the photo.
+5. FRAME / COMPOSITION: just THIS one dish on the table. NEVER add a second bowl, second plate, side dish, garnish ramekin, salt shaker, glass, cutlery, napkin, or any other object that is not in the original photo. Background must be EMPTY (just the table surface).
+6. PLATE / VAJILLA: same color, same shape, same material. Do NOT swap a white plate for a black one or vice versa.
 
-WHAT TO IMPROVE (subtly):
-- Lighting: soft natural-feeling directional light, like a professional restaurant photo near a window. Gentle highlights, soft natural shadows.
-- Background: clean and uncluttered. Out-of-focus restaurant table or neutral surface (wood, marble, linen). Remove obvious distractions like phone cables, hands, brand wrappers, fingers in frame.
-- Color: realistic, true-to-life colors. Slight warmth boost is fine, no oversaturation.
-- Sharpness: crisp on the food, natural depth of field with slight background blur.
-- Texture: real food textures preserved (no plastic look on cheese, no shiny varnish on meats).
+ABSOLUTE NO-GO LIST (these are common AI mistakes — do not make them):
+- Adding a second bowl/plate/object to the background
+- Adding parsley, microgreens, basil, edible flowers, lemon wedges, sauce drips on the plate rim
+- Changing pink/rosé sauce to plain tomato sauce
+- Changing the pasta type (spaghetti ↔ penne ↔ rigatoni etc.)
+- Adding extra grated cheese or extra ingredients on top
+- Making sauces look glossier/wetter/more saturated than they really are
+- HDR halos, oversharpening, plastic shine, fake steam, dramatic lighting
 
-GOAL: make this dish look as appetizing as it really is — through better light and framing, NOT by reimagining or embellishing the food.
+WHAT YOU MAY CHANGE (only these, subtly):
+- Lighting: soft natural directional light (like near a window). Gentle highlights, soft shadows.
+- Background CLEAN-UP: remove fingers, phone cables, brand wrappers, plastic bags, paper towels visible behind the dish. Replace with empty wood/marble/linen surface.
+- Color: realistic true-to-life. Slight warmth correction OK, no oversaturation.
+- Focus: slight background blur (DOF), crisp food.
+
+GOAL: the result should look like an UNEDITED photo a pro photographer took of THIS EXACT dish. Better light, cleaner background, same food.
 
 Food item declared by the restaurant: ${name}
 `.trim(),
@@ -163,7 +170,9 @@ function pickUrl(item: ImageItem | undefined): string | null {
   return null
 }
 
-async function generateWithFallback(prompt: string): Promise<string | null> {
+type GenResult = { url: string | null; modelUsed: string }
+
+async function generateWithFallback(prompt: string): Promise<GenResult> {
   // Primero intento gpt-image-1 (mejor calidad, gated en muchas cuentas).
   try {
     const res = await openai.images.generate({
@@ -173,12 +182,12 @@ async function generateWithFallback(prompt: string): Promise<string | null> {
       size: '1024x1024',
       quality: 'high',
     })
-    return pickUrl(res.data?.[0])
+    console.log('[imagenes] generate model: gpt-image-1')
+    return { url: pickUrl(res.data?.[0]), modelUsed: 'gpt-image-1' }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    // Si la cuenta no tiene acceso al modelo, fallback a dall-e-3.
     if (/model_not_found|do not have access|not_found/i.test(msg)) {
-      console.warn('[imagenes] gpt-image-1 no disponible, fallback a dall-e-3')
+      console.warn('[imagenes] gpt-image-1 no disponible, fallback a dall-e-3:', msg)
       const res = await openai.images.generate({
         model: 'dall-e-3',
         prompt,
@@ -186,14 +195,13 @@ async function generateWithFallback(prompt: string): Promise<string | null> {
         size: '1024x1024',
         quality: 'hd',
       })
-      return pickUrl(res.data?.[0])
+      return { url: pickUrl(res.data?.[0]), modelUsed: 'dall-e-3 (fallback)' }
     }
     throw err
   }
 }
 
-async function editWithFallback(prompt: string, imageBase64: string): Promise<string | null> {
-  // OpenAI espera Uploadable; convertimos el base64 a un File via toFile().
+async function editWithFallback(prompt: string, imageBase64: string): Promise<GenResult> {
   const buf = Buffer.from(imageBase64, 'base64')
   if (buf.byteLength > 25 * 1024 * 1024) {
     throw new Error('La imagen supera 25MB. Subi una version mas chica.')
@@ -208,11 +216,12 @@ async function editWithFallback(prompt: string, imageBase64: string): Promise<st
       n: 1,
       size: '1024x1024',
     })
-    return pickUrl(res.data?.[0])
+    console.log('[imagenes] edit model: gpt-image-1')
+    return { url: pickUrl(res.data?.[0]), modelUsed: 'gpt-image-1' }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     if (/model_not_found|do not have access|not_found/i.test(msg)) {
-      console.warn('[imagenes] gpt-image-1 edit no disponible, fallback a dall-e-2')
+      console.warn('[imagenes] gpt-image-1 edit no disponible, fallback a dall-e-2:', msg)
       const fileFallback = await toFile(buf, 'input.png', { type: 'image/png' })
       const res = await openai.images.edit({
         model: 'dall-e-2',
@@ -221,7 +230,7 @@ async function editWithFallback(prompt: string, imageBase64: string): Promise<st
         n: 1,
         size: '1024x1024',
       })
-      return pickUrl(res.data?.[0])
+      return { url: pickUrl(res.data?.[0]), modelUsed: 'dall-e-2 (fallback - calidad limitada, reimagina mas)' }
     }
     throw err
   }
@@ -295,15 +304,15 @@ export async function POST(req: Request) {
 
     // Cualquier modo con foto adjunta usa images.edit (foto como referencia).
     // Sin foto cae a images.generate.
-    let url: string | null = null
+    let result: GenResult
     if (data.imageBase64 && (data.mode === 'upgrade' || data.mode === 'branded' || data.mode === 'explotar')) {
-      url = await editWithFallback(prompt, data.imageBase64)
+      result = await editWithFallback(prompt, data.imageBase64)
     } else {
-      url = await generateWithFallback(prompt)
+      result = await generateWithFallback(prompt)
     }
 
-    if (!url) return NextResponse.json({ error: 'OpenAI devolvio respuesta vacia' }, { status: 502 })
-    return NextResponse.json({ url })
+    if (!result.url) return NextResponse.json({ error: 'OpenAI devolvio respuesta vacia' }, { status: 502 })
+    return NextResponse.json({ url: result.url, modelUsed: result.modelUsed })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error desconocido'
     console.error('[imagenes] error:', msg)
