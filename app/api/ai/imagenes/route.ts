@@ -17,10 +17,30 @@ const schema = z.object({
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+// Construye un bloque de contexto de marca que se inyecta en TODOS los prompts.
+// Asi cada imagen generada respeta los colores, estilo y "feel" del local.
+function brandingContext(args: {
+  businessName: string
+  primaryColor: string
+  secondaryColor: string
+  accentColor: string
+  style: string
+}): string {
+  return `
+BRAND CONTEXT — apply these to background and styling of the result:
+- Restaurant name: ${args.businessName}
+- Brand primary color (use as subtle background tint or accent on shadows): ${args.primaryColor}
+- Brand secondary color (use as main background or empty surface): ${args.secondaryColor}
+- Brand accent color (use sparingly for warmth highlights, never on the food itself): ${args.accentColor}
+- Brand style direction: ${args.style} (e.g. modern = clean minimal, rustic = warm wood textures, classic = elegant linen, minimalist = stark white, vibrant = saturated bold)
+The food itself is NEVER recolored to match the brand — it keeps its true natural colors. Brand colors only appear in the background, surface, light tone, and overall mood.
+`.trim()
+}
+
 const PROMPTS = {
   // Mejora REALISTA con ground truth inyectada (descripcion factual del plato).
   // Recibe `groundTruth` con lo que la imagen REALMENTE contiene para evitar alucinaciones.
-  upgrade: (name: string, groundTruth: string) => `
+  upgrade: (name: string, groundTruth: string, brand: string) => `
 This is a real photograph of food taken with a phone camera. Your task: produce a PHOTOREALISTIC color/light/background retouch of this EXACT same dish. Treat this as professional photo retouching, NOT image generation.
 
 THIS DISH IS (use as ground truth, do NOT deviate):
@@ -45,70 +65,101 @@ ABSOLUTE NO-GO LIST (these are common AI mistakes — do not make them):
 
 WHAT YOU MAY CHANGE (only these, subtly):
 - Lighting: soft natural directional light (like near a window). Gentle highlights, soft shadows.
-- Background CLEAN-UP: remove fingers, phone cables, brand wrappers, plastic bags, paper towels visible behind the dish. Replace with empty wood/marble/linen surface.
-- Color: realistic true-to-life. Slight warmth correction OK, no oversaturation.
+- Background CLEAN-UP: remove fingers, phone cables, brand wrappers, plastic bags, paper towels visible behind the dish. Replace with a surface that matches the BRAND CONTEXT below (color tone + style direction).
+- Color: realistic true-to-life on the food. Background can carry a subtle tint matching the brand secondary color.
 - Focus: slight background blur (DOF), crisp food.
 
-GOAL: the result should look like an UNEDITED photo a pro photographer took of THIS EXACT dish. Better light, cleaner background, same food.
+${brand}
+
+GOAL: the result should look like an UNEDITED photo a pro photographer took of THIS EXACT dish, in a background that subtly references the restaurant's brand. Better light, cleaner background, same food.
 
 Food item declared by the restaurant: ${name}
 `.trim(),
 
   // Explotar con foto como referencia: identifica los ingredientes visibles del plato real
   // y los separa en capas flotantes con etiquetas. El plato sigue siendo el del usuario.
-  explotarWithPhoto: (name: string, ingredients: string) => `
-This is a real photograph of "${name}". Create a premium exploded-view food infographic where each visible ingredient of THIS exact dish is separated into a floating layer, stacked vertically with even spacing between layers.
+  explotarWithPhoto: (name: string, ingredients: string, brand: string) => `
+This is a real photograph of "${name}". Create a PHOTOREALISTIC exploded-view image where each visible ingredient of THIS exact dish is shown as a separate floating layer, stacked vertically with even spacing between layers.
+
+CRITICAL — EACH INGREDIENT MUST LOOK LIKE A REAL PHOTOGRAPH:
+- Each layer must appear as if it were photographed individually with a professional camera, then composited together. NOT 3D rendered, NOT CGI, NOT illustration, NOT digital painting, NOT clay-like, NOT plastic.
+- Real food textures: bread should have visible crumb, real grain, real shadows. Cheese should look like real melted/fresh cheese with realistic surface, not like a plastic toy. Meat should have real grill marks, real juices, real fibers. Lettuce with real leaf veins. Tomato with real seeds.
+- Avoid the typical AI "smooth perfect rounded edges" look. Real food has imperfections: a tomato slice is not a perfect circle, a burger patty has uneven edges, lettuce is irregular.
+- NO glossy plastic shine. NO oversaturated colors. NO symmetric perfection. NO floating-too-clean look.
 
 ABSOLUTE RULES:
-- Use the attached photo as the literal reference. Identify the actual ingredients present in the photo and separate them as layers in the order they appear in the dish (top layer = topping, bottom layer = base).
-- Each layer must look photorealistic, made of the SAME ingredient as in the photo (same color, same texture, same cut, same cooking state). Do NOT invent ingredients that are not in the original photo.
-- White or very light neutral background. Soft realistic shadows under each layer to give depth.
-- Each layer has a small clean text label to the side or below, in a minimal sans-serif font, naming the ingredient in Spanish (rioplatense Argentinian).
-- Style: editorial food infographic, premium clean look, like a high-end restaurant brand campaign.
-- Photoreal ingredients, NOT illustration or 3D render.
+- Use the attached photo as literal reference. Identify the actual ingredients in the photo and separate them as layers in their real stacking order (top topping → base).
+- Each ingredient is the SAME as in the photo (same color, same cut, same cooking state). Do NOT invent ingredients that are not visible.
+- Background and styling MUST follow the BRAND CONTEXT below (subtle background tint + style direction).
+- Each layer has a small clean text label to the side, sans-serif Spanish rioplatense, low-emphasis (not loud).
+- Soft realistic drop shadows under each layer (shadows that match the brand background tone, not pure black).
 
-User-provided ingredient list (use as guide; if some are not visible in the photo, omit them; if visible ingredients are missing from the list, include them anyway with proper Spanish names): ${ingredients || '(no provista — usa solo lo que veas en la foto)'}
+User-provided ingredient list (use as guide; if some are not visible in the photo, omit them; if visible ingredients are missing, include them with proper Spanish names): ${ingredients || '(no provista — usa solo lo que veas en la foto)'}
 
-Output a single composition, vertical stack of floating layers with labels.
+${brand}
+
+Output: single composition, vertical stack of REAL-LOOKING ingredients with discrete labels, on a brand-aligned background.
 `.trim(),
 
-  // Explotar SIN foto (fallback si el user no sube imagen): generacion pura como antes.
-  explotar: (name: string, ingredients: string) => `
-Create a premium exploded-view food infographic illustration of "${name}".
-Show each ingredient as a separate floating layer, stacked vertically with slight spacing between layers.
-Each layer should have a clean label with the ingredient name in a minimal sans-serif font (Spanish, rioplatense).
-White or very light neutral background. Soft realistic shadows.
-Style: clean, modern, editorial food infographic. Photoreal ingredients, not illustration.
-Premium quality, suitable for a high-end restaurant menu.
-Ingredients to show as layers (in order from top to bottom): ${ingredients}
+  // Explotar SIN foto (fallback si el user no sube imagen): generacion pura.
+  explotar: (name: string, ingredients: string, brand: string) => `
+Create a PHOTOREALISTIC exploded-view image of "${name}".
+Each ingredient appears as if photographed separately with a pro camera and composited into a vertical stack.
+
+Photorealism rules (critical):
+- Each ingredient must look like a REAL photograph, not 3D render, not CGI, not illustration.
+- Real textures: real bread crumb, real cheese melt, real meat grain, real vegetable surface with imperfections.
+- Avoid AI "perfect rounded smooth" aesthetic. Real food is asymmetric.
+- No plastic shine, no oversaturation.
+
+Layout:
+- Vertical stack with even spacing between layers, in real stacking order (top → bottom).
+- Each layer has a small Spanish (rioplatense) sans-serif label to the side, low emphasis.
+- Background and surface tone follow the BRAND CONTEXT below.
+- Soft realistic shadows under each layer matching the brand background.
+
+Ingredients to show (in order top → bottom): ${ingredients}
+
+${brand}
 `.trim(),
 
-  generar: (name: string, ingredients: string) => `
-Create a stunning, photorealistic food photography image of "${name}".
-Ingredients: ${ingredients}
-Style: premium restaurant menu photography.
-Lighting: soft studio lighting with warm tones, gentle shadows.
-Plating: elegant, modern restaurant presentation on a clean white or dark plate.
-Background: blurred neutral background (dark wood or marble texture).
-Ultra sharp, HDR, appetizing, crave-inducing.
-No text, no watermarks. Just the food.
+  generar: (name: string, ingredients: string, brand: string) => `
+Create a PHOTOREALISTIC food photography image of "${name}".
+
+Photorealism is mandatory:
+- This must look like an UNEDITED PHOTO taken by a professional food photographer with a real camera and real lighting. NOT 3D render, NOT CGI, NOT illustration, NOT digital painting.
+- Real food textures with natural imperfections (asymmetric cuts, uneven edges, real grain, real surface variation).
+- No plastic shine, no oversaturation, no HDR halos, no artificial glow.
+
+Ingredients present: ${ingredients}
+
+Plating and styling:
+- Elegant restaurant presentation on a real ceramic or wooden plate.
+- Soft natural-feeling directional lighting (window-light look), gentle shadows.
+- Composition: food centered, slight off-axis angle for natural feel, slight background blur (DOF).
+- Background and surface tone aligned with the BRAND CONTEXT below.
+
+${brand}
+
+No text on the image. No watermarks. Just real-looking food.
 `.trim(),
 
-  branded: (
-    name: string,
-    businessName: string,
-    primaryColor: string,
-    accentColor: string,
-    style: string,
-  ) => `
-Create a premium branded food advertising image for "${businessName}" restaurant.
-Food item: "${name}"
-Brand colors: primary ${primaryColor}, accent ${accentColor}.
-Brand style: ${style}.
-Create a complete social media advertisement: the food as the hero, styled with the brand's color palette as background accents or overlays, minimal elegant typography area (leave space for text overlay).
-The image should feel like a professional Instagram post or story for this specific restaurant brand.
-Ultra-detailed, photoreal food in the center. Premium advertising quality.
-Cinematic lighting. Make it look irresistible and on-brand.
+  branded: (name: string, brand: string) => `
+Create a PHOTOREALISTIC branded food image: this restaurant's signature dish "${name}" presented as a campaign-ready photo for the restaurant's own Instagram feed.
+
+Photorealism mandatory:
+- Looks like a real photograph by a pro food photographer, NOT a 3D render, NOT CGI, NOT illustration.
+- Real food textures, real surface imperfections, real lighting.
+
+${brand}
+
+Composition:
+- Food is the hero, centered, photorealistic.
+- Background carries the brand colors and style as a subtle environment (e.g. wood for rustic brand, white marble for minimalist, vibrant solid color wash for bold brand).
+- Leave some negative space (top or side) where the restaurant could overlay text later.
+- Cinematic but realistic lighting — not Hollywood dramatic, just professional.
+
+No text in the image. Make it look irresistible and on-brand.
 `.trim(),
 }
 
@@ -272,6 +323,17 @@ export async function POST(req: Request) {
     const itemName = data.itemName
     const ingredients = data.ingredients ?? ''
 
+    // Branding context que se inyecta en TODOS los prompts: aplica al fondo,
+    // tono de superficie y estilo de la imagen final, sin alterar el color real
+    // de la comida.
+    const brand = brandingContext({
+      businessName: business.name,
+      primaryColor: branding?.primaryColor ?? '#1a1a1a',
+      secondaryColor: branding?.secondaryColor ?? '#ffffff',
+      accentColor: branding?.accentColor ?? '#FF6B35',
+      style: branding?.style ?? 'modern',
+    })
+
     let prompt = ''
     switch (data.mode) {
       case 'upgrade': {
@@ -280,25 +342,19 @@ export async function POST(req: Request) {
         const groundTruth = data.imageBase64
           ? await inspectDishWithVision(data.imageBase64, itemName, ingredients)
           : `- Comida: ${itemName}${ingredients ? `\n- Ingredientes confirmados por el dueño: ${ingredients}` : ''}`
-        prompt = PROMPTS.upgrade(itemName, groundTruth)
+        prompt = PROMPTS.upgrade(itemName, groundTruth, brand)
         break
       }
       case 'explotar':
         prompt = data.imageBase64
-          ? PROMPTS.explotarWithPhoto(itemName, ingredients)
-          : PROMPTS.explotar(itemName, ingredients)
+          ? PROMPTS.explotarWithPhoto(itemName, ingredients, brand)
+          : PROMPTS.explotar(itemName, ingredients, brand)
         break
       case 'generar':
-        prompt = PROMPTS.generar(itemName, ingredients)
+        prompt = PROMPTS.generar(itemName, ingredients, brand)
         break
       case 'branded':
-        prompt = PROMPTS.branded(
-          itemName,
-          business.name,
-          branding?.primaryColor ?? '#1a1a1a',
-          branding?.accentColor ?? '#FF6B35',
-          branding?.style ?? 'modern',
-        )
+        prompt = PROMPTS.branded(itemName, brand)
         break
     }
 
