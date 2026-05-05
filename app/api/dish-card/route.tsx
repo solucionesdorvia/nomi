@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import OpenAI from 'openai'
+import { getMenuTheme } from '@/lib/theme'
 
 export const runtime = 'nodejs'
 
@@ -123,11 +124,14 @@ export async function GET(req: Request) {
 
   const business = item.category.menu.business
   const branding = business.branding
-  const primary = branding?.primaryColor ?? '#1a1a1a'
-  const secondary = branding?.secondaryColor ?? '#f8f4ed'
-  const accent = branding?.accentColor ?? '#FF6B35'
-  const fontHeading = branding?.fontHeading ?? 'Playfair Display'
-  const fontBody = branding?.fontBody ?? 'Inter'
+  const theme = getMenuTheme(branding)
+  // La ficha de plato usa surface como fondo principal (claro), ink como
+  // texto y accent para precio/destacado. Garantiza legibilidad.
+  const surface = theme.surface
+  const ink = theme.ink
+  const accent = theme.accent
+  const fontHeading = theme.fontHeading
+  const fontBody = theme.fontBody
   const photo = item.imageAiUrl ?? item.imageUrl
 
   const enrichment = await enrichDishWithAI({
@@ -174,8 +178,8 @@ export async function GET(req: Request) {
         style={{
           width: CARD_W,
           height: CARD_H,
-          backgroundColor: secondary,
-          color: primary,
+          backgroundColor: surface,
+          color: ink,
           fontFamily: 'Body',
           display: 'flex',
           flexDirection: 'column',
@@ -190,7 +194,7 @@ export async function GET(req: Request) {
               fontSize: 16,
               letterSpacing: 4,
               textTransform: 'uppercase',
-              color: primary + 'aa',
+              color: ink + 'aa',
               fontWeight: 700,
             }}
           >
@@ -220,7 +224,7 @@ export async function GET(req: Request) {
             fontFamily: 'Heading',
             fontWeight: 700,
             fontSize: 92,
-            color: primary,
+            color: ink,
             lineHeight: 1.0,
             letterSpacing: -2,
             marginBottom: 16,
@@ -283,8 +287,8 @@ export async function GET(req: Request) {
             alignItems: 'flex-start',
             paddingTop: 24,
             paddingBottom: 24,
-            borderTop: `1px solid ${primary}20`,
-            borderBottom: `1px solid ${primary}20`,
+            borderTop: `1px solid ${ink}20`,
+            borderBottom: `1px solid ${ink}20`,
             marginBottom: 24,
             gap: 32,
           }}
@@ -296,7 +300,7 @@ export async function GET(req: Request) {
                 fontSize: 14,
                 letterSpacing: 3,
                 textTransform: 'uppercase',
-                color: primary + '88',
+                color: ink + '88',
                 fontWeight: 700,
               }}
             >
@@ -305,7 +309,7 @@ export async function GET(req: Request) {
             <div
               style={{
                 fontSize: 22,
-                color: primary,
+                color: ink,
                 lineHeight: 1.4,
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -325,7 +329,7 @@ export async function GET(req: Request) {
                 fontSize: 14,
                 letterSpacing: 3,
                 textTransform: 'uppercase',
-                color: primary + '88',
+                color: ink + '88',
                 fontWeight: 700,
               }}
             >
@@ -350,7 +354,7 @@ export async function GET(req: Request) {
           <div
             style={{
               fontSize: 22,
-              color: primary + 'cc',
+              color: ink + 'cc',
               lineHeight: 1.5,
               marginBottom: 'auto',
               display: 'flex',
@@ -371,7 +375,7 @@ export async function GET(req: Request) {
             justifyContent: 'space-between',
             alignItems: 'flex-end',
             paddingTop: 24,
-            borderTop: `1px solid ${primary}15`,
+            borderTop: `1px solid ${ink}15`,
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -380,7 +384,7 @@ export async function GET(req: Request) {
                 fontFamily: 'Heading',
                 fontWeight: 700,
                 fontSize: 24,
-                color: primary,
+                color: ink,
                 display: 'flex',
               }}
             >
@@ -389,7 +393,7 @@ export async function GET(req: Request) {
             <div
               style={{
                 fontSize: 14,
-                color: primary + '88',
+                color: ink + '88',
                 letterSpacing: 1,
                 display: 'flex',
               }}
@@ -401,7 +405,7 @@ export async function GET(req: Request) {
             style={{
               fontSize: 12,
               letterSpacing: 2,
-              color: primary + '55',
+              color: ink + '55',
               textTransform: 'uppercase',
               display: 'flex',
             }}

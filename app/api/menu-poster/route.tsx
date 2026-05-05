@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
+import { getMenuTheme } from '@/lib/theme'
 
 export const runtime = 'nodejs'
 
@@ -62,11 +63,17 @@ export async function GET() {
   if (!business.menus[0]) return new Response('Sin menu activo', { status: 404 })
 
   const branding = business.branding
-  const primary = branding?.primaryColor ?? '#1a1a1a'
-  const secondary = branding?.secondaryColor ?? '#ffffff'
-  const accent = branding?.accentColor ?? '#FF6B35'
-  const fontHeading = branding?.fontHeading ?? 'Playfair Display'
-  const fontBody = branding?.fontBody ?? 'Inter'
+  const theme = getMenuTheme(branding)
+  // Mapeo: el poster es como un "menu compacto" — usamos heroBg para la banda
+  // superior+footer y surface para el grid central. Asi siempre hay contraste
+  // sin importar que combinacion de colores eligio el dueño.
+  const surface = theme.surface
+  const ink = theme.ink
+  const heroBg = theme.heroBg
+  const heroInk = theme.heroInk
+  const accent = theme.accent
+  const fontHeading = theme.fontHeading
+  const fontBody = theme.fontBody
 
   // Aplastamos todos los items y armamos el orden: destacados primero, despues por orden natural.
   const allItems = business.menus[0].categories.flatMap(cat =>
@@ -129,19 +136,19 @@ export async function GET() {
         style={{
           width: POSTER_W,
           height: POSTER_H,
-          backgroundColor: secondary,
+          backgroundColor: surface,
           display: 'flex',
           flexDirection: 'column',
           fontFamily: 'Body',
-          color: primary,
+          color: ink,
           position: 'relative',
         }}
       >
-        {/* Banda superior con color primario */}
+        {/* Banda superior con color de marca (heroBg garantiza contraste) */}
         <div
           style={{
-            backgroundColor: primary,
-            color: secondary,
+            backgroundColor: heroBg,
+            color: heroInk,
             paddingTop: 60,
             paddingBottom: 50,
             paddingLeft: 60,
@@ -170,7 +177,7 @@ export async function GET() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 64,
-                color: secondary,
+                color: heroInk,
               }}
             >
               🍽
@@ -211,7 +218,7 @@ export async function GET() {
             flexWrap: 'wrap',
             padding: 40,
             gap: 24,
-            backgroundColor: secondary,
+            backgroundColor: surface,
           }}
         >
           {slots.map((item, idx) => {
@@ -223,8 +230,8 @@ export async function GET() {
                 style={{
                   width: cardWidth,
                   height: 320,
-                  backgroundColor: isEmpty ? 'transparent' : '#ffffff',
-                  border: `1px solid ${primary}15`,
+                  backgroundColor: isEmpty ? 'transparent' : surface,
+                  border: `1px solid ${ink}22`,
                   borderRadius: 18,
                   overflow: 'hidden',
                   display: 'flex',
@@ -274,7 +281,7 @@ export async function GET() {
                         fontFamily: 'Heading',
                         fontWeight: 700,
                         fontSize: 22,
-                        color: primary,
+                        color: ink,
                         lineHeight: 1.15,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -289,7 +296,7 @@ export async function GET() {
                       <div
                         style={{
                           fontSize: 14,
-                          color: primary + 'aa',
+                          color: ink + 'aa',
                           lineHeight: 1.3,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -321,8 +328,8 @@ export async function GET() {
         {/* Footer */}
         <div
           style={{
-            backgroundColor: primary,
-            color: secondary,
+            backgroundColor: heroBg,
+            color: heroInk,
             padding: '36px 60px',
             display: 'flex',
             alignItems: 'center',

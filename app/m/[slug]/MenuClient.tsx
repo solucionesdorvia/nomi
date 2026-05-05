@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { Search, Star, Leaf, Wheat, Flame, Zap, ArrowDown, X } from 'lucide-react'
 import { useMenuTracking } from '@/hooks/useMenuTracking'
+import { getMenuTheme } from '@/lib/theme'
 
 type Branding = {
   primaryColor: string
@@ -38,14 +39,13 @@ const TAG_ICONS: Record<string, typeof Leaf> = {
   'Nuevo': Zap,
 }
 
-// Estilo visual derivado de branding.style. Cada style ajusta layout completo.
 type StylePreset = {
   name: string
   cardRadius: number
   buttonRadius: number
   photoFilter: string
-  divider: string         // caracter o cadena para divisores decorativos
-  bigDisplaySize: number  // px del nombre del local en hero
+  divider: string
+  bigDisplaySize: number
   numberStyle: 'roman' | 'arabic' | 'hash'
   hasOrnaments: boolean
   pillStyle: 'rounded' | 'square'
@@ -127,9 +127,9 @@ function formatCategoryNumber(n: number, style: StylePreset['numberStyle']): str
   return String(n).padStart(2, '0')
 }
 
-// Pequeno helper para rgba con hex base
+// Helper local con cualquier hex (usado para alphas sobre el accent).
 function withAlpha(hex: string, alpha: number): string {
-  const a = Math.round(alpha * 255).toString(16).padStart(2, '0')
+  const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, '0')
   return `${hex}${a}`
 }
 
@@ -143,11 +143,16 @@ export default function MenuClient({
   menu: Menu
 }) {
   const b = business.branding
-  const primary = b?.primaryColor ?? '#1a1a1a'
-  const secondary = b?.secondaryColor ?? '#fafaf7'
-  const accent = b?.accentColor ?? '#FF6B35'
-  const fontHeading = b?.fontHeading ?? 'Playfair Display'
-  const fontBody = b?.fontBody ?? 'Inter'
+  // Theme con roles semanticos derivados del branding del local. Garantiza
+  // contraste y legibilidad sin importar que combinacion ponga el dueño.
+  const theme = useMemo(() => getMenuTheme(b), [b])
+  const {
+    surface, surfaceAlt, ink, subtleInk,
+    heroBg, heroInk, accent,
+    border, borderStrong,
+    fontHeading, fontBody,
+    withInkAlpha, withHeroInkAlpha,
+  } = theme
   const preset = useMemo(() => getStylePreset(b?.style ?? 'modern'), [b?.style])
 
   useMenuTracking(slug)
@@ -157,7 +162,6 @@ export default function MenuClient({
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [scrolled, setScrolled] = useState(false)
 
-  // Sticky search bar aparece despues de scrollear el hero.
   useEffect(() => {
     function onScroll() {
       setScrolled(window.scrollY > 360)
@@ -202,8 +206,7 @@ export default function MenuClient({
     setActiveCategory(null)
   }
 
-  // Inyectamos las fonts via Google Fonts una sola vez cuando el componente
-  // monta. Evita pedirle al user que las configure aparte.
+  // Carga las fonts del branding desde Google Fonts al montar.
   useEffect(() => {
     const fonts = [fontHeading, fontBody].filter((v, i, a) => a.indexOf(v) === i)
     const link = document.createElement('link')
@@ -216,36 +219,35 @@ export default function MenuClient({
   return (
     <div
       style={{
-        backgroundColor: secondary,
-        color: primary,
+        backgroundColor: surface,
+        color: ink,
         fontFamily: fontBody,
         minHeight: '100vh',
       }}
     >
-      {/* Sticky bar (aparece tras scrollear el hero) */}
+      {/* Sticky bar */}
       <div
         className="fixed top-0 left-0 right-0 z-40 transition-all duration-500"
         style={{
           transform: scrolled ? 'translateY(0)' : 'translateY(-100%)',
-          backgroundColor: secondary,
-          borderBottom: `1px solid ${withAlpha(primary, 0.08)}`,
-          boxShadow: scrolled ? `0 1px 0 ${withAlpha(primary, 0.04)}` : 'none',
+          backgroundColor: surface,
+          borderBottom: `1px solid ${border}`,
         }}
       >
         <div className="max-w-3xl mx-auto px-5 py-3 flex items-center gap-3">
           {b?.logoUrl ? (
             <div
               className="w-9 h-9 overflow-hidden shrink-0"
-              style={{ borderRadius: preset.buttonRadius / 2, border: `1px solid ${withAlpha(primary, 0.15)}` }}
+              style={{ borderRadius: preset.buttonRadius / 2, border: `1px solid ${border}` }}
             >
               <Image src={b.logoUrl} alt={business.name} width={36} height={36} className="object-cover w-full h-full" />
             </div>
           ) : (
             <div
-              className="w-9 h-9 flex items-center justify-center shrink-0"
+              className="w-9 h-9 flex items-center justify-center shrink-0 font-semibold"
               style={{
                 backgroundColor: accent,
-                color: secondary,
+                color: surface,
                 borderRadius: preset.buttonRadius / 2,
                 fontFamily: fontHeading,
               }}
@@ -255,7 +257,7 @@ export default function MenuClient({
           )}
           <div
             className="text-sm font-semibold flex-1 truncate"
-            style={{ fontFamily: fontHeading, color: primary, letterSpacing: preset.letterSpacing.replace('em', 'em') }}
+            style={{ fontFamily: fontHeading, color: ink }}
           >
             {business.name}
           </div>
@@ -264,7 +266,7 @@ export default function MenuClient({
             className="text-xs px-3 py-1.5 transition-colors"
             style={{
               backgroundColor: accent,
-              color: secondary,
+              color: surface,
               borderRadius: preset.buttonRadius,
               fontFamily: fontBody,
             }}
@@ -278,24 +280,22 @@ export default function MenuClient({
       <section
         className="relative overflow-hidden"
         style={{
-          backgroundColor: primary,
-          color: secondary,
+          backgroundColor: heroBg,
+          color: heroInk,
           minHeight: '92vh',
           paddingTop: 64,
           paddingBottom: 40,
         }}
       >
-        {/* Sutil textura/gradient para no quedar liso */}
         <div
           aria-hidden
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: `radial-gradient(120% 80% at 50% 0%, ${withAlpha(accent, 0.18)} 0%, transparent 60%)`,
+            background: `radial-gradient(120% 80% at 50% 0%, ${withAlpha(accent, 0.22)} 0%, transparent 60%)`,
           }}
         />
 
         <div className="relative max-w-3xl mx-auto px-6 flex flex-col items-center text-center pt-12 pb-16">
-          {/* Brand mark / logo */}
           {b?.logoUrl ? (
             <div
               className="overflow-hidden mb-8"
@@ -303,8 +303,8 @@ export default function MenuClient({
                 width: 132,
                 height: 132,
                 borderRadius: preset.name === 'elegant' || preset.name === 'minimal' ? 0 : 999,
-                border: `2px solid ${withAlpha(secondary, 0.18)}`,
-                backgroundColor: withAlpha(secondary, 0.05),
+                border: `2px solid ${withHeroInkAlpha(0.18)}`,
+                backgroundColor: withHeroInkAlpha(0.05),
               }}
             >
               <Image
@@ -322,8 +322,8 @@ export default function MenuClient({
                 width: 132,
                 height: 132,
                 borderRadius: preset.name === 'elegant' || preset.name === 'minimal' ? 0 : 999,
-                border: `1.5px solid ${withAlpha(secondary, 0.25)}`,
-                color: secondary,
+                border: `1.5px solid ${withHeroInkAlpha(0.25)}`,
+                color: heroInk,
                 fontFamily: fontHeading,
                 fontSize: 56,
                 letterSpacing: '-0.04em',
@@ -333,11 +333,10 @@ export default function MenuClient({
             </div>
           )}
 
-          {/* Caption sobre el nombre */}
           <div
             className="mb-4 uppercase text-xs"
             style={{
-              color: withAlpha(secondary, 0.6),
+              color: withHeroInkAlpha(0.6),
               letterSpacing: preset.letterSpacing,
               fontFamily: fontBody,
             }}
@@ -345,33 +344,26 @@ export default function MenuClient({
             {preset.divider} Menú · {new Date().getFullYear()} {preset.divider}
           </div>
 
-          {/* Nombre del local */}
           <h1
             className="font-bold leading-[1.02] tracking-tight"
             style={{
               fontFamily: fontHeading,
               fontSize: preset.bigDisplaySize,
-              color: secondary,
+              color: heroInk,
               letterSpacing: preset.name === 'minimal' ? '-0.02em' : preset.name === 'elegant' ? '0' : '-0.03em',
             }}
           >
             {business.name}
           </h1>
 
-          {/* Linea decorativa */}
           <div
             className="mt-8"
-            style={{
-              width: 64,
-              height: 1,
-              backgroundColor: accent,
-            }}
+            style={{ width: 64, height: 1, backgroundColor: accent }}
           />
 
-          {/* Categoria summary */}
           <p
             className="mt-8 text-sm max-w-md"
-            style={{ color: withAlpha(secondary, 0.68), fontFamily: fontBody, lineHeight: 1.65 }}
+            style={{ color: withHeroInkAlpha(0.68), fontFamily: fontBody, lineHeight: 1.65 }}
           >
             {menu.categories.length} {menu.categories.length === 1 ? 'categoría' : 'categorías'} ·
             {' '}
@@ -380,12 +372,11 @@ export default function MenuClient({
           </p>
         </div>
 
-        {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
           <a
             href="#menu"
             className="flex flex-col items-center gap-2 transition-opacity hover:opacity-100"
-            style={{ color: withAlpha(secondary, 0.6) }}
+            style={{ color: withHeroInkAlpha(0.6) }}
           >
             <span className="text-[10px] uppercase tracking-[0.3em]" style={{ fontFamily: fontBody }}>
               Carta
@@ -401,7 +392,7 @@ export default function MenuClient({
         <div className="relative mb-5">
           <Search
             className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4"
-            style={{ color: withAlpha(primary, 0.4) }}
+            style={{ color: withInkAlpha(0.4) }}
           />
           <input
             type="text"
@@ -410,9 +401,9 @@ export default function MenuClient({
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-11 pr-10 py-3.5 text-sm focus:outline-none transition-colors"
             style={{
-              backgroundColor: secondary,
-              color: primary,
-              border: `1px solid ${withAlpha(primary, 0.12)}`,
+              backgroundColor: surface,
+              color: ink,
+              border: `1px solid ${border}`,
               borderRadius: preset.cardRadius,
               fontFamily: fontBody,
             }}
@@ -421,7 +412,7 @@ export default function MenuClient({
             <button
               onClick={() => setSearch('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-              style={{ color: withAlpha(primary, 0.5) }}
+              style={{ color: subtleInk }}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -440,9 +431,9 @@ export default function MenuClient({
                   onClick={() => setActiveTag(active ? null : tag)}
                   className="flex items-center gap-1.5 px-3.5 py-2 text-xs whitespace-nowrap transition-all shrink-0"
                   style={{
-                    backgroundColor: active ? primary : 'transparent',
-                    color: active ? secondary : primary,
-                    border: `1px solid ${active ? primary : withAlpha(primary, 0.18)}`,
+                    backgroundColor: active ? ink : 'transparent',
+                    color: active ? surface : ink,
+                    border: `1px solid ${active ? ink : borderStrong}`,
                     borderRadius: preset.pillStyle === 'rounded' ? 999 : 0,
                     fontFamily: fontBody,
                     fontWeight: 500,
@@ -464,8 +455,8 @@ export default function MenuClient({
               className="px-4 py-2 text-xs whitespace-nowrap transition-all shrink-0"
               style={{
                 backgroundColor: !activeCategory ? accent : 'transparent',
-                color: !activeCategory ? secondary : primary,
-                border: `1px solid ${!activeCategory ? accent : withAlpha(primary, 0.18)}`,
+                color: !activeCategory ? surface : ink,
+                border: `1px solid ${!activeCategory ? accent : borderStrong}`,
                 borderRadius: preset.pillStyle === 'rounded' ? 999 : 0,
                 fontFamily: fontBody,
                 fontWeight: 500,
@@ -482,8 +473,8 @@ export default function MenuClient({
                   className="px-4 py-2 text-xs whitespace-nowrap transition-all shrink-0"
                   style={{
                     backgroundColor: active ? accent : 'transparent',
-                    color: active ? secondary : primary,
-                    border: `1px solid ${active ? accent : withAlpha(primary, 0.18)}`,
+                    color: active ? surface : ink,
+                    border: `1px solid ${active ? accent : borderStrong}`,
                     borderRadius: preset.pillStyle === 'rounded' ? 999 : 0,
                     fontFamily: fontBody,
                     fontWeight: 500,
@@ -497,7 +488,7 @@ export default function MenuClient({
           </div>
         )}
 
-        {/* Destacados (carrusel) */}
+        {/* Destacados */}
         {featured.length > 0 && !hasFilters && (
           <section className="mb-12">
             <div className="flex items-baseline justify-between mb-5">
@@ -510,7 +501,7 @@ export default function MenuClient({
                 </p>
                 <h2
                   className="text-2xl"
-                  style={{ fontFamily: fontHeading, color: primary, fontWeight: 600, letterSpacing: '-0.01em' }}
+                  style={{ fontFamily: fontHeading, color: ink, fontWeight: 600, letterSpacing: '-0.01em' }}
                 >
                   Lo que más se pide
                 </h2>
@@ -523,8 +514,8 @@ export default function MenuClient({
                   key={item.id}
                   className="shrink-0 w-64 overflow-hidden snap-start transition-transform"
                   style={{
-                    backgroundColor: secondary,
-                    border: `1px solid ${withAlpha(primary, 0.1)}`,
+                    backgroundColor: surfaceAlt,
+                    border: `1px solid ${border}`,
                     borderRadius: preset.cardRadius,
                   }}
                 >
@@ -554,14 +545,14 @@ export default function MenuClient({
                     </div>
                     <h3
                       className="text-base font-semibold leading-tight line-clamp-1 mb-1"
-                      style={{ fontFamily: fontHeading, color: primary }}
+                      style={{ fontFamily: fontHeading, color: ink }}
                     >
                       {item.name}
                     </h3>
                     {item.description && (
                       <p
                         className="text-xs line-clamp-2 mb-2"
-                        style={{ color: withAlpha(primary, 0.62), lineHeight: 1.5 }}
+                        style={{ color: subtleInk, lineHeight: 1.5 }}
                       >
                         {item.description}
                       </p>
@@ -580,13 +571,12 @@ export default function MenuClient({
         <div className="space-y-14">
           {filtered.map((cat, catIdx) => (
             <section key={cat.id}>
-              {/* Header de categoria */}
-              <header className="flex items-end justify-between mb-6 pb-3" style={{ borderBottom: `1px solid ${withAlpha(primary, 0.1)}` }}>
+              <header className="flex items-end justify-between mb-6 pb-3" style={{ borderBottom: `1px solid ${border}` }}>
                 <div>
                   <p
                     className="text-[10px] uppercase mb-1.5"
                     style={{
-                      color: withAlpha(primary, 0.5),
+                      color: subtleInk,
                       letterSpacing: preset.letterSpacing,
                       fontFamily: fontBody,
                       fontWeight: 500,
@@ -598,7 +588,7 @@ export default function MenuClient({
                     className="flex items-center gap-2"
                     style={{
                       fontFamily: fontHeading,
-                      color: primary,
+                      color: ink,
                       fontSize: 28,
                       fontWeight: 600,
                       letterSpacing: preset.name === 'elegant' ? '0.01em' : '-0.01em',
@@ -614,7 +604,6 @@ export default function MenuClient({
                 )}
               </header>
 
-              {/* Grid de items: 1 col mobile, 2 col tablet+ */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {cat.items.map(item => {
                   const photo = item.imageAiUrl || item.imageUrl
@@ -623,12 +612,11 @@ export default function MenuClient({
                       key={item.id}
                       className="group overflow-hidden transition-all hover:translate-y-[-2px]"
                       style={{
-                        backgroundColor: secondary,
-                        border: `1px solid ${withAlpha(primary, 0.08)}`,
+                        backgroundColor: surfaceAlt,
+                        border: `1px solid ${border}`,
                         borderRadius: preset.cardRadius,
                       }}
                     >
-                      {/* Foto */}
                       <div
                         className="relative aspect-[4/3] overflow-hidden"
                         style={{ backgroundColor: withAlpha(accent, 0.06) }}
@@ -651,7 +639,7 @@ export default function MenuClient({
                           <div
                             className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 backdrop-blur-md"
                             style={{
-                              backgroundColor: withAlpha(secondary, 0.92),
+                              backgroundColor: withAlpha(surface, 0.92),
                               borderRadius: preset.buttonRadius,
                             }}
                           >
@@ -663,12 +651,11 @@ export default function MenuClient({
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="p-4 sm:p-5">
                         <div className="flex items-baseline justify-between gap-3 mb-1.5">
                           <h3
                             className="text-base sm:text-lg font-semibold leading-tight"
-                            style={{ fontFamily: fontHeading, color: primary, letterSpacing: '-0.005em' }}
+                            style={{ fontFamily: fontHeading, color: ink, letterSpacing: '-0.005em' }}
                           >
                             {item.name}
                           </h3>
@@ -683,7 +670,7 @@ export default function MenuClient({
                         {item.description && (
                           <p
                             className="text-sm leading-relaxed line-clamp-2 mb-3"
-                            style={{ color: withAlpha(primary, 0.68), fontFamily: fontBody }}
+                            style={{ color: subtleInk, fontFamily: fontBody }}
                           >
                             {item.description}
                           </p>
@@ -721,7 +708,7 @@ export default function MenuClient({
               <p style={{ fontSize: 48, marginBottom: 12 }}>🔍</p>
               <p
                 className="text-base mb-4"
-                style={{ color: withAlpha(primary, 0.7), fontFamily: fontBody }}
+                style={{ color: subtleInk, fontFamily: fontBody }}
               >
                 No encontramos platos con ese filtro
               </p>
@@ -730,7 +717,7 @@ export default function MenuClient({
                 className="text-xs px-4 py-2 transition-colors"
                 style={{
                   backgroundColor: accent,
-                  color: secondary,
+                  color: surface,
                   borderRadius: preset.buttonRadius,
                   fontFamily: fontBody,
                   fontWeight: 600,
@@ -748,7 +735,7 @@ export default function MenuClient({
       <footer
         className="border-t mt-8"
         style={{
-          borderColor: withAlpha(primary, 0.08),
+          borderColor: border,
           paddingTop: 32,
           paddingBottom: 32,
         }}
@@ -761,7 +748,7 @@ export default function MenuClient({
                 width: 48,
                 height: 48,
                 borderRadius: preset.name === 'elegant' || preset.name === 'minimal' ? 0 : 999,
-                border: `1px solid ${withAlpha(primary, 0.12)}`,
+                border: `1px solid ${border}`,
               }}
             >
               <Image src={b.logoUrl} alt={business.name} width={48} height={48} className="object-cover w-full h-full" />
@@ -769,20 +756,20 @@ export default function MenuClient({
           )}
           <div
             className="text-base font-semibold"
-            style={{ fontFamily: fontHeading, color: primary }}
+            style={{ fontFamily: fontHeading, color: ink }}
           >
             {business.name}
           </div>
           <div
             className="text-[10px] uppercase tracking-[0.4em]"
-            style={{ color: withAlpha(primary, 0.45), fontFamily: fontBody }}
+            style={{ color: subtleInk, fontFamily: fontBody }}
           >
             Menú digital
           </div>
           <div
             className="mt-2 text-[10px] uppercase"
             style={{
-              color: withAlpha(primary, 0.35),
+              color: withInkAlpha(0.35),
               letterSpacing: '0.3em',
               fontFamily: fontBody,
             }}
@@ -793,7 +780,6 @@ export default function MenuClient({
         </div>
       </footer>
 
-      {/* CSS para scroll horizontal sin scrollbar */}
       <style jsx global>{`
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
