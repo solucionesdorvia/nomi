@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import Image from 'next/image'
 import { Upload, X, Loader2, Sparkles } from 'lucide-react'
@@ -16,6 +16,9 @@ interface ImageUploadProps {
   endpoint: 'businessLogo' | 'itemImage'
 }
 
+const MAX_FILE_SIZE_MB = 8
+const UPLOAD_TIMEOUT_MS = 45_000
+
 export default function ImageUpload({
   value,
   aiValue,
@@ -28,26 +31,64 @@ export default function ImageUpload({
   const [enhancing, setEnhancing] = useState(false)
   const [showAi, setShowAi] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  // El SDK no siempre dispara onUploadError si algo se traba; mantenemos un
+  // timeout local para dar feedback al user en lugar de quedar colgados.
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [timedOut, setTimedOut] = useState(false)
 
   const { startUpload, isUploading } = useUploadThing(endpoint, {
     onClientUploadComplete: (res) => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      setTimedOut(false)
       const file = res?.[0]
-      if (!file) return
-      // ufsUrl es la URL canónica desde Uploadthing v7+; url queda como fallback.
+      if (!file) {
+        setUploadError('El servidor no devolvió la URL. Reintentá.')
+        return
+      }
       const url = file.ufsUrl ?? file.url
-      if (url) onChange(url)
+      if (url) {
+        console.log('[ImageUpload] OK url=', url)
+        onChange(url)
+      } else {
+        setUploadError('Subida completada pero sin URL en respuesta.')
+      }
     },
     onUploadError: (err) => {
-      console.error('Uploadthing error:', err)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      console.error('[ImageUpload] Uploadthing error:', err)
       setUploadError(err.message ?? 'Error al subir la imagen')
     },
   })
+
+  // Cleanup del timeout al unmount
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+  }, [])
 
   const onDrop = useCallback(async (files: File[]) => {
     const file = files[0]
     if (!file) return
     setUploadError(null)
-    await startUpload([file])
+    setTimedOut(false)
+
+    // Validacion client-side: tamano max ANTES de pegarle al server.
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      setUploadError(`La imagen pesa ${(file.size / 1024 / 1024).toFixed(1)}MB. Máximo: ${MAX_FILE_SIZE_MB}MB.`)
+      return
+    }
+
+    // Watchdog: si la subida no termina en UPLOAD_TIMEOUT_MS, mostramos error.
+    timeoutRef.current = setTimeout(() => {
+      setTimedOut(true)
+      setUploadError(`La subida no respondió en ${UPLOAD_TIMEOUT_MS / 1000}s. Verificá tu conexión y reintentá. Si persiste, capaz hay un problema con Uploadthing.`)
+    }, UPLOAD_TIMEOUT_MS)
+
+    try {
+      await startUpload([file])
+    } catch (err) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      setUploadError(err instanceof Error ? err.message : 'Error inesperado al subir')
+    }
   }, [startUpload])
 
   async function handleEnhance() {
@@ -145,22 +186,25 @@ export default function ImageUpload({
           }`}
         >
           <input {...getInputProps()} />
-          {isUploading ? (
-            <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
+          {isUploading && !timedOut ? (
+            <>
+              <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
+              <p className="text-xs text-neutral-500 mt-2">Subiendo...</p>
+            </>
           ) : (
             <>
               <Upload className={`w-6 h-6 mb-2 ${isDragActive ? 'text-orange-500' : 'text-neutral-400'}`} />
               <p className="text-xs text-neutral-500 text-center px-4">
                 {isDragActive ? 'Soltá la imagen' : label}
               </p>
-              <p className="text-xs text-neutral-400 mt-1">PNG, JPG hasta 4MB</p>
+              <p className="text-xs text-neutral-400 mt-1">PNG, JPG hasta {MAX_FILE_SIZE_MB}MB</p>
             </>
           )}
         </div>
       )}
 
       {uploadError && (
-        <p className="text-xs text-red-600">{uploadError}</p>
+        <p className="text-xs text-red-600 leading-relaxed">{uploadError}</p>
       )}
     </div>
   )
