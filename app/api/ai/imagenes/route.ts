@@ -78,33 +78,60 @@ Food item declared by the restaurant: ${name}
 
   // Explotar con foto como referencia: identifica los ingredientes visibles del plato real
   // y los separa en capas flotantes con etiquetas. El plato sigue siendo el del usuario.
-  explotarWithPhoto: (name: string, ingredients: string, brand: string) => `
-This is a real photograph of "${name}". Create a PHOTOREALISTIC exploded-view image where each visible ingredient of THIS exact dish is shown as a separate floating layer, stacked vertically with even spacing between layers.
+  explotarWithPhoto: (name: string, ingredients: string, brand: string) => {
+    // Convertimos la lista a una numeracion explicita para que el modelo
+    // entienda 1-a-1 que ingrediente va con que label, en orden.
+    const list = ingredients
+      .split(/[\n,]+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+    const numbered = list.length > 0
+      ? list.map((ing, i) => `  ${i + 1}. ${ing}`).join('\n')
+      : '  (no provista — usa solo lo que veas en la foto, en orden top → bottom)'
+
+    return `
+This is a real photograph of "${name}". Create a PHOTOREALISTIC exploded-view image where each visible ingredient is shown as a separate floating layer, stacked vertically with even spacing between layers.
 
 CRITICAL — EACH INGREDIENT MUST LOOK LIKE A REAL PHOTOGRAPH:
-- Each layer must appear as if it were photographed individually with a professional camera, then composited together. NOT 3D rendered, NOT CGI, NOT illustration, NOT digital painting, NOT clay-like, NOT plastic.
-- Real food textures: bread should have visible crumb, real grain, real shadows. Cheese should look like real melted/fresh cheese with realistic surface, not like a plastic toy. Meat should have real grill marks, real juices, real fibers. Lettuce with real leaf veins. Tomato with real seeds.
-- Avoid the typical AI "smooth perfect rounded edges" look. Real food has imperfections: a tomato slice is not a perfect circle, a burger patty has uneven edges, lettuce is irregular.
-- NO glossy plastic shine. NO oversaturated colors. NO symmetric perfection. NO floating-too-clean look.
+- Each layer must appear as if photographed individually with a professional camera, then composited. NOT 3D rendered, NOT CGI, NOT illustration, NOT digital painting, NOT clay-like, NOT plastic.
+- Real food textures: bread with visible crumb and real grain. Cheese like real melted/fresh cheese, not plastic toy. Meat with real grill marks, juices, fibers. Lettuce with real leaf veins. Tomato with real seeds.
+- Real food is asymmetric: tomato slice not a perfect circle, burger patty has uneven edges, lettuce irregular.
+- NO glossy plastic shine. NO oversaturated colors. NO symmetric perfection.
 
-ABSOLUTE RULES:
-- Use the attached photo as literal reference. Identify the actual ingredients in the photo and separate them as layers in their real stacking order (top topping → base).
-- Each ingredient is the SAME as in the photo (same color, same cut, same cooking state). Do NOT invent ingredients that are not visible.
-- Background and styling MUST follow the BRAND CONTEXT below (subtle background tint + style direction).
-- Each layer has a small clean text label to the side, sans-serif Spanish rioplatense, low-emphasis (not loud).
-- Soft realistic drop shadows under each layer (shadows that match the brand background tone, not pure black).
+INGREDIENT-LABEL MAPPING (CRITICAL — must follow exactly in this order):
+${numbered}
 
-User-provided ingredient list (use as guide; if some are not visible in the photo, omit them; if visible ingredients are missing, include them with proper Spanish names): ${ingredients || '(no provista — usa solo lo que veas en la foto)'}
+LABEL PLACEMENT RULES (CRITICAL — most common AI failure is mismatching):
+- The number of labels MUST equal the number of ingredient layers. No extra labels, no missing labels.
+- Layer #1 in the list above = TOPMOST layer in the image. Last layer in the list = BOTTOMMOST in the image.
+- Each label is placed on the RIGHT side of the image, on the SAME HORIZONTAL ROW as the center of its ingredient layer (same Y coordinate, same vertical height).
+- Draw a thin horizontal connector line from each ingredient layer to its label, so it's visually obvious which label belongs to which ingredient.
+- Labels are aligned in a vertical column on the right.
+- DO NOT shift labels up or down by one slot. Each label is at the EXACT vertical center of its corresponding ingredient.
+- Sans-serif font, low emphasis, dark color over light background. Spanish (rioplatense Argentinian) names.
+
+LAYOUT:
+- Image canvas split visually: left ~65% has the stacked ingredients, right ~35% has the column of labels.
+- Even vertical spacing between layers. Soft realistic shadows under each layer matching the brand background tone, NOT pure black.
 
 ${brand}
 
-Output: single composition, vertical stack of REAL-LOOKING ingredients with discrete labels, on a brand-aligned background.
-`.trim(),
+Output: single photoreal composition. Vertical stack of REAL-LOOKING ingredients on the left, perfectly aligned column of labels on the right, each label on the same row as its ingredient, on a brand-aligned background.
+`.trim()
+  },
 
   // Explotar SIN foto (fallback si el user no sube imagen): generacion pura.
-  explotar: (name: string, ingredients: string, brand: string) => `
-Create a PHOTOREALISTIC exploded-view image of "${name}".
-Each ingredient appears as if photographed separately with a pro camera and composited into a vertical stack.
+  explotar: (name: string, ingredients: string, brand: string) => {
+    const list = ingredients
+      .split(/[\n,]+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+    const numbered = list.length > 0
+      ? list.map((ing, i) => `  ${i + 1}. ${ing}`).join('\n')
+      : '  (vacio)'
+
+    return `
+Create a PHOTOREALISTIC exploded-view image of "${name}". Each ingredient appears as if photographed separately with a pro camera and composited into a vertical stack with labels.
 
 Photorealism rules (critical):
 - Each ingredient must look like a REAL photograph, not 3D render, not CGI, not illustration.
@@ -112,16 +139,26 @@ Photorealism rules (critical):
 - Avoid AI "perfect rounded smooth" aesthetic. Real food is asymmetric.
 - No plastic shine, no oversaturation.
 
-Layout:
-- Vertical stack with even spacing between layers, in real stacking order (top → bottom).
-- Each layer has a small Spanish (rioplatense) sans-serif label to the side, low emphasis.
-- Background and surface tone follow the BRAND CONTEXT below.
-- Soft realistic shadows under each layer matching the brand background.
+INGREDIENT-LABEL MAPPING (CRITICAL — must follow in this order, top → bottom):
+${numbered}
 
-Ingredients to show (in order top → bottom): ${ingredients}
+LABEL PLACEMENT RULES (CRITICAL):
+- The number of labels MUST equal the number of ingredient layers above. No extras, no missing.
+- Layer #1 = TOPMOST. Last layer = BOTTOMMOST.
+- Each label on the RIGHT, on the SAME HORIZONTAL ROW as its ingredient (same Y coordinate, same vertical height).
+- Thin horizontal connector line from each ingredient to its label.
+- DO NOT shift labels by one slot. Exact vertical alignment per ingredient.
+- Sans-serif, low emphasis, Spanish rioplatense.
+
+LAYOUT:
+- Left ~65%: stacked ingredients with even spacing.
+- Right ~35%: column of labels, perfectly aligned with their ingredients.
+- Background and surface tone follow the BRAND CONTEXT below.
+- Soft realistic shadows matching the brand background tone.
 
 ${brand}
-`.trim(),
+`.trim()
+  },
 
   generar: (name: string, ingredients: string, brand: string) => `
 Create a PHOTOREALISTIC food photography image of "${name}".
