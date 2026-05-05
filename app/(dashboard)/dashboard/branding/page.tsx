@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { Check, Loader2, AlertCircle, Sparkles } from 'lucide-react'
 import ImageUpload from '@/components/dashboard/ImageUpload'
-import { extractPaletteFromUrl } from '@/lib/extract-palette'
+import InspirationPaletteModal from '@/components/dashboard/InspirationPaletteModal'
+import { extractPaletteFromUrl, type ExtractedPalette } from '@/lib/extract-palette'
 
 const FONTS = ['Inter', 'Playfair Display', 'Lato', 'Montserrat', 'Merriweather', 'Nunito', 'Raleway', 'Poppins']
 const STYLES = [
@@ -38,6 +39,19 @@ export default function BrandingPage() {
   const [extracting, setExtracting] = useState(false)
   const [paletteApplied, setPaletteApplied] = useState(false)
   const lastExtractedUrl = useRef<string>('')
+  const [inspirationOpen, setInspirationOpen] = useState(false)
+  const [inspirationApplied, setInspirationApplied] = useState(false)
+
+  function applyInspirationPalette(p: ExtractedPalette) {
+    setForm(f => ({
+      ...f,
+      primaryColor: p.primaryColor,
+      secondaryColor: p.secondaryColor,
+      accentColor: p.accentColor,
+    }))
+    setInspirationApplied(true)
+    setTimeout(() => setInspirationApplied(false), 4000)
+  }
 
   // Precarga los datos existentes desde la DB. Sin esto, el form arrancaba
   // con defaults y al guardar pisaba lo que el user ya tenia configurado.
@@ -211,7 +225,23 @@ export default function BrandingPage() {
 
           {/* Colores */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-3">Colores</label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-neutral-700">Colores</label>
+              <button
+                type="button"
+                onClick={() => setInspirationOpen(true)}
+                className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium"
+              >
+                <Sparkles className="w-3 h-3" />
+                Inspirar paleta desde imágenes
+              </button>
+            </div>
+            {inspirationApplied && (
+              <p className="text-xs text-green-600 mb-3 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" />
+                Paleta aplicada desde tus imágenes. Podés ajustar cualquier color abajo.
+              </p>
+            )}
             <div className="space-y-3">
               {[
                 { key: 'primaryColor', label: 'Color principal' },
@@ -410,6 +440,12 @@ export default function BrandingPage() {
           </div>
         </div>
       </div>
+
+      <InspirationPaletteModal
+        open={inspirationOpen}
+        onClose={() => setInspirationOpen(false)}
+        onApply={applyInspirationPalette}
+      />
     </div>
   )
 }
