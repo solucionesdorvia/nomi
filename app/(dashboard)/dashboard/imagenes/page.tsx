@@ -185,12 +185,12 @@ export default function ImagenesPage() {
             </div>
           )}
 
-          {/* Ingredientes (para explotar y generar) */}
-          {currentMode.needsIngredients && (
+          {/* Ingredientes (requerido en explotar/generar; OPCIONAL en upgrade para evitar alucinaciones) */}
+          {(currentMode.needsIngredients || mode === 'upgrade') && (
             <div>
               <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
-                Ingredientes *
-                {mode === 'explotar' && <span className="text-neutral-400 font-normal"> (uno por línea, en orden top → bottom)</span>}
+                Ingredientes {currentMode.needsIngredients ? '*' : <span className="text-neutral-400 font-normal">(opcional, recomendado)</span>}
+                {mode === 'explotar' && <span className="text-neutral-400 font-normal"> · uno por línea, top → bottom</span>}
               </label>
               <textarea
                 value={ingredients}
@@ -198,14 +198,21 @@ export default function ImagenesPage() {
                 placeholder={
                   mode === 'explotar'
                     ? 'Pan brioche\nQueso cheddar\nMedallon de carne\nLechuga\nTomate\nCebolla'
+                    : mode === 'upgrade'
+                    ? 'Ej: bondiola, queso provoleta, jamón cocido, pan de papa'
                     : 'Milanesa de ternera, salsa napolitana, jamón cocido, queso mozzarella, aceitunas verdes'
                 }
                 className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
-                rows={mode === 'explotar' ? 5 : 3}
+                rows={mode === 'explotar' ? 5 : mode === 'upgrade' ? 2 : 3}
               />
               {mode === 'explotar' && (
                 <p className="text-xs text-neutral-400 mt-1.5">
                   Tip: la IA usa la foto del plato como referencia y separa cada ingrediente en su propia capa.
+                </p>
+              )}
+              {mode === 'upgrade' && (
+                <p className="text-xs text-neutral-400 mt-1.5">
+                  Si dejás esto vacío, la IA detecta los ingredientes de la foto. Cargarlos vos ayuda a que el resultado no invente nada.
                 </p>
               )}
             </div>

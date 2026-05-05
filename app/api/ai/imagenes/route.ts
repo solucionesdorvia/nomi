@@ -18,26 +18,33 @@ const schema = z.object({
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const PROMPTS = {
-  // Mejora REALISTA: el resultado debe parecer una foto profesional del MISMO plato,
-  // no una version "AI mejorada" que se note. Conservador, no dramatico.
-  upgrade: (name: string) => `
-This is a real photograph of food taken with a phone camera. Your task: produce a PHOTOREALISTIC retouch of this exact same dish, as if a professional food photographer had photographed the same plate in the same restaurant moments later, with better camera and lighting.
+  // Mejora REALISTA con ground truth inyectada (descripcion factual del plato).
+  // Recibe `groundTruth` con lo que la imagen REALMENTE contiene para evitar alucinaciones.
+  upgrade: (name: string, groundTruth: string) => `
+This is a real photograph of food taken with a phone camera. Your task: produce a PHOTOREALISTIC retouch of this EXACT same dish, as if a professional food photographer had photographed the same plate in the same restaurant moments later, with better camera and lighting.
+
+GROUND TRUTH — what this dish ACTUALLY contains (do not deviate from this):
+${groundTruth}
 
 ABSOLUTE RULES (do not violate):
-- The dish itself MUST be identical: same ingredients, same plating arrangement, same colors, same proportions, same shapes, same toppings, same garnish placement, same plate, same utensils. Do NOT add, remove, rearrange, or substitute anything on the plate.
+- The dish itself MUST be identical to the ground truth above and to the input photo: same ingredients, same plating arrangement, same colors, same proportions, same shapes, same toppings, same garnish placement, same plate, same utensils.
+- Do NOT add ingredients that are not in the ground truth or photo.
+- Do NOT remove ingredients that ARE in the ground truth or photo.
+- Do NOT rearrange or substitute anything on the plate.
+- Do NOT invent decorative garnishes (parsley, microgreens, edible flowers) that are not visible.
 - The result must look like an UNEDITED PHOTOGRAPH, not an AI image, not a 3D render, not an illustration, not a stylized poster.
 - No fake glossy plastic-looking surfaces. No exaggerated saturation. No HDR halos. No oversharpening. No symmetric perfection. No cartoonish steam clouds.
 
 WHAT TO IMPROVE (subtly):
 - Lighting: soft natural-feeling directional light, like a professional restaurant photo near a window. Gentle highlights, soft natural shadows.
-- Background: clean and uncluttered. Out-of-focus restaurant table or neutral surface (wood, marble, linen). Remove obvious distractions like phone cables, hands, brand wrappers.
+- Background: clean and uncluttered. Out-of-focus restaurant table or neutral surface (wood, marble, linen). Remove obvious distractions like phone cables, hands, brand wrappers, fingers in frame.
 - Color: realistic, true-to-life colors. Slight warmth boost is fine, no oversaturation.
 - Sharpness: crisp on the food, natural depth of field with slight background blur.
 - Texture: real food textures preserved (no plastic look on cheese, no shiny varnish on meats).
 
-GOAL: make this dish look as appetizing as it really is — through better light and framing, NOT by making it look like a CGI rendering.
+GOAL: make this dish look as appetizing as it really is — through better light and framing, NOT by reimagining or embellishing the food.
 
-Food item: ${name}
+Food item declared by the restaurant: ${name}
 `.trim(),
 
   // Explotar con foto como referencia: identifica los ingredientes visibles del plato real
@@ -100,6 +107,52 @@ Cinematic lighting. Make it look irresistible and on-brand.
 
 // Limite duro de 25MB por imagen base64 (mas que eso OpenAI lo rechaza).
 const MAX_BASE64_BYTES = 25 * 1024 * 1024 * (4 / 3)
+
+// Inspecciona la foto con Vision (gpt-4o-mini) y devuelve una descripcion FACTUAL
+// del plato (ingredientes visibles, vajilla, fondo). Usada como ground truth para
+// evitar que el modelo de imagen alucine al retocar.
+async function inspectDishWithVision(imageBase64: string, declaredName: string, userIngredients?: string): Promise<string> {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `Sos un asistente que describe SOLO los hechos visibles en una foto de comida, en español rioplatense, en formato de bullet list compacto. NO opines, NO inventes, NO uses adjetivos publicitarios. Si algo no se ve con claridad, omitilo o decí "no visible".
+
+Formato exacto de respuesta (lista con guiones, una linea por item, máximo 8 items):
+- Comida: [el plato + ingredientes principales que ves separados por comas]
+- Topping/garnish: [solo lo que efectivamente está sobre el plato; si no hay, "ninguno visible"]
+- Plato/vajilla: [color, forma, material si se distingue]
+- Fondo: [superficie sobre la que está apoyado el plato]
+- Distracciones a remover: [manos, telefono, cables, etiquetas, otros objetos. Si no hay, "ninguna"]`,
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `El restaurante declara que este plato es: "${declaredName}".${userIngredients?.trim() ? `\nIngredientes que el dueño confirma: ${userIngredients}` : ''}\n\nDescribí los hechos visibles en la foto.`,
+            },
+            {
+              type: 'image_url',
+              image_url: { url: `data:image/png;base64,${imageBase64}`, detail: 'low' },
+            },
+          ],
+        },
+      ],
+      max_tokens: 250,
+      temperature: 0.2,
+    })
+    return completion.choices[0].message.content?.trim() ?? ''
+  } catch (err) {
+    console.error('[imagenes] vision inspection error:', err)
+    // Si Vision falla, devolvemos al menos el dato declarado por el dueño.
+    const parts = [`- Comida: ${declaredName}`]
+    if (userIngredients?.trim()) parts.push(`- Ingredientes confirmados por el dueño: ${userIngredients}`)
+    return parts.join('\n')
+  }
+}
 
 type ImageItem = { url?: string | null; b64_json?: string | null }
 
@@ -212,9 +265,15 @@ export async function POST(req: Request) {
 
     let prompt = ''
     switch (data.mode) {
-      case 'upgrade':
-        prompt = PROMPTS.upgrade(itemName)
+      case 'upgrade': {
+        // Vision pass: describe lo que la foto realmente contiene, asi al
+        // pasar a images.edit el modelo no alucina ni agrega cosas.
+        const groundTruth = data.imageBase64
+          ? await inspectDishWithVision(data.imageBase64, itemName, ingredients)
+          : `- Comida: ${itemName}${ingredients ? `\n- Ingredientes confirmados por el dueño: ${ingredients}` : ''}`
+        prompt = PROMPTS.upgrade(itemName, groundTruth)
         break
+      }
       case 'explotar':
         prompt = data.imageBase64
           ? PROMPTS.explotarWithPhoto(itemName, ingredients)
