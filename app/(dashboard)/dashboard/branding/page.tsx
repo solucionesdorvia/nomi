@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { Check, Loader2, AlertCircle } from 'lucide-react'
+import { Check, Loader2, AlertCircle, Sparkles } from 'lucide-react'
 import ImageUpload from '@/components/dashboard/ImageUpload'
+import { extractPaletteFromUrl } from '@/lib/extract-palette'
 
 const FONTS = ['Inter', 'Playfair Display', 'Lato', 'Montserrat', 'Merriweather', 'Nunito', 'Raleway', 'Poppins']
 const STYLES = [
@@ -32,6 +33,11 @@ export default function BrandingPage() {
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [form, setForm] = useState(DEFAULT_FORM)
+  // Extraccion de paleta cuando se sube/cambia el logo. Skipeamos en la
+  // primera carga (no queremos pisar los colores al precargar el logo viejo).
+  const [extracting, setExtracting] = useState(false)
+  const [paletteApplied, setPaletteApplied] = useState(false)
+  const lastExtractedUrl = useRef<string>('')
 
   // Precarga los datos existentes desde la DB. Sin esto, el form arrancaba
   // con defaults y al guardar pisaba lo que el user ya tenia configurado.
@@ -54,9 +60,52 @@ export default function BrandingPage() {
         })
       })
       .catch(err => console.error('[branding] error precargando datos:', err))
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false)
+          // Marcamos el logo precargado como "ya procesado" para que NO dispare
+          // extraccion automatica al montar. Solo cuando el user sube uno nuevo.
+          // (Lo seteamos despues de setForm via funcion getter)
+        }
+      })
     return () => { cancelled = true }
   }, [])
+
+  // Cuando termina el GET inicial, marcamos el logo cargado como "ya procesado".
+  // Sin esto, el form.logoUrl se setea, dispara el effect de extract, y pisa
+  // los colores que el user ya tenia guardados.
+  useEffect(() => {
+    if (!loading && form.logoUrl && !lastExtractedUrl.current) {
+      lastExtractedUrl.current = form.logoUrl
+    }
+  }, [loading, form.logoUrl])
+
+  // Cuando el user cambia el logo (sube uno nuevo), extraemos paleta y
+  // aplicamos los 3 colores automaticamente.
+  useEffect(() => {
+    if (loading) return
+    if (!form.logoUrl) return
+    if (form.logoUrl === lastExtractedUrl.current) return
+
+    const url = form.logoUrl
+    lastExtractedUrl.current = url
+    setExtracting(true)
+    setPaletteApplied(false)
+
+    extractPaletteFromUrl(url)
+      .then(palette => {
+        setForm(f => ({
+          ...f,
+          primaryColor: palette.primaryColor,
+          secondaryColor: palette.secondaryColor,
+          accentColor: palette.accentColor,
+        }))
+        setPaletteApplied(true)
+        setStatus('idle')
+      })
+      .catch(err => console.error('[branding] extract error:', err))
+      .finally(() => setExtracting(false))
+  }, [form.logoUrl, loading])
 
   function set(key: string, val: string) {
     setStatus('idle')
@@ -119,7 +168,8 @@ export default function BrandingPage() {
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1.5">Logo</label>
             <p className="text-xs text-neutral-400 mb-3">
-              Aparece en el menú público y en el póster generado. PNG con fondo transparente queda mejor.
+              Aparece en el menú público y en el póster. PNG con fondo transparente queda mejor.
+              Al subirlo, extraemos los colores de tu marca automáticamente.
             </p>
             <div className="max-w-[180px]">
               <ImageUpload
@@ -130,6 +180,18 @@ export default function BrandingPage() {
                 endpoint="businessLogo"
               />
             </div>
+            {extracting && (
+              <p className="text-xs text-orange-600 mt-2 flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Analizando paleta del logo...
+              </p>
+            )}
+            {paletteApplied && !extracting && (
+              <p className="text-xs text-green-600 mt-2 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" />
+                Colores extraídos del logo. Podés ajustarlos abajo si querés.
+              </p>
+            )}
           </div>
 
           {/* Nombre */}
