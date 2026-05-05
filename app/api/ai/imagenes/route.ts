@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import OpenAI, { toFile } from 'openai'
 import { z } from 'zod'
+import { generateImageWithFlux, isFluxAvailable } from '@/lib/flux'
 
 export const runtime = 'nodejs'
 // gpt-image-1 puede tardar ~60s; subimos el limite del handler.
@@ -260,8 +261,21 @@ function pickUrl(item: ImageItem | undefined): string | null {
 
 type GenResult = { url: string | null; modelUsed: string }
 
-async function generateWithFallback(prompt: string): Promise<GenResult> {
-  // Primero intento gpt-image-1 (mejor calidad, gated en muchas cuentas).
+// Generacion pura (text-to-image). Estrategia segun preferencia:
+//   - 'flux'    : intenta Flux Pro 1.1 primero, fallback a OpenAI si falla.
+//   - 'openai'  : intenta gpt-image-1 primero, fallback a dall-e-3.
+async function generateWithFallback(prompt: string, preferred: 'flux' | 'openai' = 'openai'): Promise<GenResult> {
+  if (preferred === 'flux' && isFluxAvailable()) {
+    try {
+      const url = await generateImageWithFlux(prompt)
+      console.log('[imagenes] generate model: flux-1.1-pro (replicate)')
+      return { url, modelUsed: 'flux-1.1-pro (replicate)' }
+    } catch (err) {
+      console.warn('[imagenes] Flux fallo, fallback a OpenAI:', err instanceof Error ? err.message : err)
+      // Cae al flujo de OpenAI abajo.
+    }
+  }
+
   try {
     const res = await openai.images.generate({
       model: 'gpt-image-1',
@@ -371,37 +385,60 @@ export async function POST(req: Request) {
       style: branding?.style ?? 'modern',
     })
 
+    // Para explotar/generar/branded usamos generacion pura con Flux (mejor calidad
+    // y mas barato). Para upgrade necesitamos editar la foto real -> OpenAI.
     let prompt = ''
+    let useFlux = false
+    let useEditWithPhoto = false
+
     switch (data.mode) {
       case 'upgrade': {
-        // Vision pass: describe lo que la foto realmente contiene, asi al
-        // pasar a images.edit el modelo no alucina ni agrega cosas.
+        // Vision pass: describe lo que la foto realmente contiene para que el
+        // modelo de edicion no alucine.
         const groundTruth = data.imageBase64
           ? await inspectDishWithVision(data.imageBase64, itemName, ingredients)
           : `- Comida: ${itemName}${ingredients ? `\n- Ingredientes confirmados por el dueño: ${ingredients}` : ''}`
         prompt = PROMPTS.upgrade(itemName, groundTruth, brand)
+        useEditWithPhoto = Boolean(data.imageBase64)
+        // upgrade siempre OpenAI (necesita images.edit con la foto).
         break
       }
-      case 'explotar':
+      case 'explotar': {
+        // Si el user subio foto, extraemos los ingredientes reales con Vision
+        // y los inyectamos al prompt (Flux es mejor con texto puro que con
+        // image-to-image para exploded views).
+        let effectiveIngredients = ingredients
+        if (data.imageBase64) {
+          const groundTruth = await inspectDishWithVision(data.imageBase64, itemName, ingredients)
+          effectiveIngredients = ingredients
+            ? `${ingredients}\n\n[Detectado en la foto: ${groundTruth}]`
+            : groundTruth
+        }
         prompt = data.imageBase64
-          ? PROMPTS.explotarWithPhoto(itemName, ingredients, brand)
-          : PROMPTS.explotar(itemName, ingredients, brand)
+          ? PROMPTS.explotarWithPhoto(itemName, effectiveIngredients, brand)
+          : PROMPTS.explotar(itemName, effectiveIngredients, brand)
+        useFlux = true
         break
+      }
       case 'generar':
         prompt = PROMPTS.generar(itemName, ingredients, brand)
+        useFlux = true
         break
       case 'branded':
         prompt = PROMPTS.branded(itemName, brand)
+        useFlux = true
+        // Si hay foto, en este modo SI conviene usarla como referencia (OpenAI edit).
+        useEditWithPhoto = Boolean(data.imageBase64)
         break
     }
 
-    // Cualquier modo con foto adjunta usa images.edit (foto como referencia).
-    // Sin foto cae a images.generate.
     let result: GenResult
-    if (data.imageBase64 && (data.mode === 'upgrade' || data.mode === 'branded' || data.mode === 'explotar')) {
+    if (useEditWithPhoto && data.imageBase64) {
       result = await editWithFallback(prompt, data.imageBase64)
+    } else if (useFlux) {
+      result = await generateWithFallback(prompt, 'flux')
     } else {
-      result = await generateWithFallback(prompt)
+      result = await generateWithFallback(prompt, 'openai')
     }
 
     if (!result.url) return NextResponse.json({ error: 'OpenAI devolvio respuesta vacia' }, { status: 502 })
