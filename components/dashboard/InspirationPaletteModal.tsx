@@ -65,29 +65,30 @@ export default function InspirationPaletteModal({ open, onClose, onApply }: Prop
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4"
       onClick={close}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-orange-500" />
-            <h2 className="text-lg font-semibold text-neutral-900">Inspirar paleta desde imágenes</h2>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-neutral-100">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-5 h-5 text-orange-500 shrink-0" />
+            <h2 className="text-base sm:text-lg font-semibold text-neutral-900 truncate">Inspirar paleta</h2>
           </div>
           <button
             onClick={close}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100"
+            className="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 shrink-0"
+            aria-label="Cerrar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 bg-neutral-50">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-neutral-50">
           <p className="text-sm text-neutral-600 mb-1">
             Subí hasta {MAX_INSPIRATIONS} imágenes de tu marca (publicaciones de Instagram, fotos del local, etc.).
           </p>
@@ -169,19 +170,19 @@ export default function InspirationPaletteModal({ open, onClose, onApply }: Prop
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-100 bg-white">
-          <p className="text-xs text-neutral-400">{urls.length} / {MAX_INSPIRATIONS} imágenes</p>
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-neutral-100 bg-white">
+          <p className="text-xs text-neutral-400 shrink-0">{urls.length} / {MAX_INSPIRATIONS}</p>
           <div className="flex gap-2">
             <button
               onClick={close}
-              className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700"
+              className="hidden sm:block px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700"
             >
               Cancelar
             </button>
             <button
               onClick={applyAndClose}
               disabled={!previewPalette}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Aplicar al branding
             </button>

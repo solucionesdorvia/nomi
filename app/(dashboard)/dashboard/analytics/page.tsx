@@ -44,13 +44,13 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Analytics</h1>
-          <p className="text-neutral-500 mt-1">Cómo interactúan tus clientes con el menú.</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900">Analytics</h1>
+          <p className="text-sm text-neutral-500 mt-1">Cómo interactúan tus clientes con el menú.</p>
         </div>
-        <div className="flex gap-1 bg-neutral-100 p-1 rounded-lg">
+        <div className="flex gap-1 bg-neutral-100 p-1 rounded-lg w-fit">
           {PERIOD_OPTIONS.map(({ label, value }) => (
             <button
               key={value}
@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
         <div className="space-y-6">
 
           {/* KPIs */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[
               { icon: Eye, label: 'Vistas del menú', value: data?.totalViews ?? 0, color: 'text-orange-500' },
               { icon: MousePointer, label: 'Platos vistos', value: itemViews, color: 'text-blue-500' },
@@ -125,7 +125,7 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Top platos */}
             <div className="bg-white rounded-xl border border-neutral-200 p-6">
               <p className="text-sm font-medium text-neutral-700 mb-4">Platos más vistos</p>

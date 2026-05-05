@@ -169,13 +169,13 @@ export default function BrandingPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-neutral-900">Branding de tu local</h1>
-        <p className="text-neutral-500 mt-1">Tu menú va a verse exactamente como tu local.</p>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900">Branding de tu local</h1>
+        <p className="text-sm text-neutral-500 mt-1">Tu menú va a verse exactamente como tu local.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Formulario */}
         <div className="space-y-6">
           {/* Logo */}
@@ -336,7 +336,7 @@ export default function BrandingPage() {
         </div>
 
         {/* Preview del menú */}
-        <div className="sticky top-8">
+        <div className="lg:sticky lg:top-8">
           <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-3">Preview</p>
           <div
             className="rounded-2xl overflow-hidden border border-neutral-200 shadow-sm"

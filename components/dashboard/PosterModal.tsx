@@ -71,29 +71,30 @@ export default function PosterModal({ open, onClose, items = [] }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-neutral-100">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-orange-500" />
-            <h2 className="text-lg font-semibold text-neutral-900">Generar contenido</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-neutral-900">Generar contenido</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100"
+            className="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100"
+            aria-label="Cerrar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="px-6 pt-4 border-b border-neutral-100 flex gap-1">
+        <div className="px-4 sm:px-6 pt-4 border-b border-neutral-100 flex gap-1 overflow-x-auto scrollbar-hide">
           <TabButton active={tab === 'menu'} onClick={() => setTab('menu')} icon={<LayoutGrid className="w-4 h-4" />}>
             Póster del menú
           </TabButton>
@@ -103,7 +104,7 @@ export default function PosterModal({ open, onClose, items = [] }: Props) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 bg-neutral-50">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-neutral-50">
           <p className="text-sm text-neutral-500 mb-4">{dishHelpText}</p>
 
           {/* Selector de plato (solo en tab "dish") */}
@@ -168,26 +169,26 @@ export default function PosterModal({ open, onClose, items = [] }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-100 bg-white gap-2">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-t border-neutral-100 bg-white gap-2">
           <button
             onClick={handleRegenerate}
             disabled={loading || !url}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-neutral-600 hover:text-neutral-900 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs sm:text-sm text-neutral-600 hover:text-neutral-900 disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Regenerar
+            <span className="hidden sm:inline">Regenerar</span>
           </button>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700"
+              className="hidden sm:block px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700"
             >
               Cerrar
             </button>
             <button
               onClick={handleDownload}
               disabled={loading || !!error || !url}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
               Descargar PNG

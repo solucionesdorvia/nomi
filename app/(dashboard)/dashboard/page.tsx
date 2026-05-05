@@ -42,12 +42,12 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="p-8 max-w-3xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-neutral-900">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900 leading-tight">
           Bienvenido a Nomi{business?.name ? `, ${business.name}` : ''}
         </h1>
-        <p className="text-neutral-500 mt-1">
+        <p className="text-sm text-neutral-500 mt-1">
           Seguí estos pasos para tener tu menú digital listo.
         </p>
       </div>
@@ -75,19 +75,19 @@ export default async function DashboardPage() {
       </div>
 
       {business?.slug && (
-        <div className="mt-8 p-5 bg-orange-50 rounded-xl border border-orange-200">
-          <p className="text-sm font-medium text-orange-800 mb-1">Tu menú público</p>
-          <div className="flex items-center gap-3">
-            <code className="text-sm text-orange-700 bg-orange-100 px-3 py-1.5 rounded-lg flex-1">
+        <div className="mt-8 p-4 sm:p-5 bg-orange-50 rounded-xl border border-orange-200">
+          <p className="text-sm font-medium text-orange-800 mb-2">Tu menú público</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <code className="text-xs sm:text-sm text-orange-700 bg-orange-100 px-3 py-2 rounded-lg flex-1 truncate">
               {process.env.NEXT_PUBLIC_APP_URL}/m/{business.slug}
             </code>
             <Link
               href={`/m/${business.slug}`}
               target="_blank"
-              className="flex items-center gap-1.5 text-sm font-medium text-orange-600 hover:text-orange-700"
+              className="flex items-center justify-center gap-1.5 text-sm font-medium text-orange-600 hover:text-orange-700 px-3 py-2 sm:py-0 rounded-lg sm:rounded-none bg-orange-100 sm:bg-transparent"
             >
               <Eye className="w-4 h-4" />
-              Ver
+              Ver menú
             </Link>
           </div>
         </div>

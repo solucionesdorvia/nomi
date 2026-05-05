@@ -72,17 +72,17 @@ export default function SocialPage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-neutral-900">Contenido para redes</h1>
-        <p className="text-neutral-500 mt-1">Generá posts, stories y estados con IA, con el tono de tu local.</p>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900">Contenido para redes</h1>
+        <p className="text-sm text-neutral-500 mt-1">Generá posts, stories y estados con IA, con el tono de tu local.</p>
       </div>
 
       <div className="space-y-6">
         {/* Tipo de contenido */}
         <div>
           <p className="text-sm font-medium text-neutral-700 mb-3">¿Qué querés generar?</p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {CONTENT_TYPES.map(({ id, label, icon: Icon, desc }) => (
               <button
                 key={id}
@@ -100,12 +100,12 @@ export default function SocialPage() {
         {/* Tono */}
         <div>
           <p className="text-sm font-medium text-neutral-700 mb-3">Tono</p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             {TONES.map(({ id, label }) => (
               <button
                 key={id}
                 onClick={() => setTone(id)}
-                className={`px-4 py-2 rounded-lg text-sm border transition-colors ${tone === id ? 'bg-neutral-900 text-white border-neutral-900' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'}`}
+                className={`px-4 py-2 rounded-lg text-sm border transition-colors whitespace-nowrap shrink-0 ${tone === id ? 'bg-neutral-900 text-white border-neutral-900' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'}`}
               >
                 {label}
               </button>

@@ -24,3 +24,11 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Landing nav: links inline en desktop, ocultos en mobile (CTA Empezar queda visible) */
+.nomi-nav-links { display: none; }
+.nomi-nav-cta-mobile { display: inline-flex; align-items: center; }
+@media (min-width: 768px) {
+  .nomi-nav-links { display: flex; }
+  .nomi-nav-cta-mobile { display: none; }
+}

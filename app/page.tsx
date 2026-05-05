@@ -7,12 +7,12 @@ export default function LandingPage() {
 
       {/* Nav */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid #1f1f1f', backgroundColor: '#0a0a0aee', backdropFilter: 'blur(12px)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
             <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: '#f5f5f0' }}>nomi</span>
             <span style={{ fontSize: 22, color: '#FF6B35', fontWeight: 600 }}>.</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div className="nomi-nav-links" style={{ alignItems: 'center', gap: 24 }}>
             <a href="#features" style={{ fontSize: 13, color: '#888', textDecoration: 'none' }}>Funciones</a>
             <a href="#pricing" style={{ fontSize: 13, color: '#888', textDecoration: 'none' }}>Precios</a>
             <Link href="/sign-in" style={{ fontSize: 13, color: '#888', textDecoration: 'none' }}>Ingresar</Link>
@@ -20,6 +20,9 @@ export default function LandingPage() {
               Empezar gratis
             </Link>
           </div>
+          <Link href="/sign-up" className="nomi-nav-cta-mobile" style={{ fontSize: 13, fontWeight: 500, color: '#0a0a0a', backgroundColor: '#FF6B35', padding: '8px 16px', borderRadius: 8, textDecoration: 'none' }}>
+            Empezar
+          </Link>
         </div>
       </nav>
 
@@ -64,7 +67,7 @@ export default function LandingPage() {
           <p style={{ fontSize: 12, color: '#444', marginBottom: 24, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             El mismo SaaS, tres locales distintos — cada uno con su identidad
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
             {[
               { name: 'La Trattoria', primary: '#1a0a00', accent: '#E8722A', bg: '#fff8f3', style: 'Rústico italiano' },
               { name: 'Sushi Ko', primary: '#0d1117', accent: '#E53E3E', bg: '#f7f7f7', style: 'Minimalista japonés' },
@@ -119,7 +122,7 @@ export default function LandingPage() {
       <section style={{ borderTop: '1px solid #1f1f1f', borderBottom: '1px solid #1f1f1f', padding: '80px 24px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 700, letterSpacing: '-0.03em', color: '#f5f5f0', textAlign: 'center', marginBottom: 60 }}>En 3 pasos, listo</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 32 }}>
             {[
               { n: '01', title: 'Configurás tu marca', desc: 'Subís el logo, elegís colores y tipografía. El menú toma tu identidad automáticamente.' },
               { n: '02', title: 'Cargás tu carta', desc: 'Agregás categorías y platos con fotos. La IA mejora las imágenes y genera descripciones.' },
@@ -141,7 +144,7 @@ export default function LandingPage() {
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 700, letterSpacing: '-0.03em', color: '#f5f5f0', marginBottom: 12 }}>Precios simples</h2>
           <p style={{ fontSize: 15, color: '#666' }}>30 días gratis. Sin tarjeta. Sin letra chica.</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
           {[
             { name: 'Starter', price: '$8.000', features: ['1 local', 'Hasta 30 platos', 'Menú QR', 'Branding adaptativo'], highlight: false },
             { name: 'Pro', price: '$18.000', features: ['1 local', 'Platos ilimitados', 'QR con tu logo', 'Mejora IA de fotos', 'Dashboard de métricas'], highlight: true },

@@ -42,10 +42,10 @@ export default function QRPage() {
   }
 
   return (
-    <div className="p-8 max-w-xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-neutral-900">Código QR</h1>
-        <p className="text-neutral-500 mt-1">Descargalo e imprimilo en tus mesas.</p>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-xl">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900">Código QR</h1>
+        <p className="text-sm text-neutral-500 mt-1">Descargalo e imprimilo en tus mesas.</p>
       </div>
 
       {slug ? (

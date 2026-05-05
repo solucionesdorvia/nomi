@@ -111,17 +111,17 @@ export default function MenuPage() {
   )
 
   return (
-    <div className="p-8 max-w-3xl">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Mi carta</h1>
-          <p className="text-neutral-500 mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900">Mi carta</h1>
+          <p className="text-sm text-neutral-500 mt-1">
             {categories.length} categorías · {categories.reduce((a, c) => a + c.items.length, 0)} platos
           </p>
         </div>
         <button
           onClick={() => setPosterOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium rounded-xl hover:opacity-90 shadow-sm shadow-orange-500/30 transition-opacity"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium rounded-xl hover:opacity-90 shadow-sm shadow-orange-500/30 transition-opacity sm:w-auto w-full"
         >
           <Sparkles className="w-4 h-4" />
           Generar póster
@@ -218,7 +218,7 @@ export default function MenuPage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex flex-col items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => updateItem(cat.id, item.id, { isFeatured: !item.isFeatured })}
                         className={`p-1.5 rounded ${item.isFeatured ? 'text-amber-500' : 'text-neutral-300 hover:text-neutral-500'}`}
