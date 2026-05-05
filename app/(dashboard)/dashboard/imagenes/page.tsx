@@ -11,12 +11,13 @@ const MODES: {
   label: string
   desc: string
   needsPhoto: boolean
+  needsIngredients: boolean
   color: 'orange' | 'blue' | 'purple' | 'green'
 }[] = [
-  { id: 'upgrade', icon: Camera, label: 'Mejorar foto', desc: 'Foto del celular → campaña profesional', needsPhoto: true, color: 'orange' },
-  { id: 'explotar', icon: Layers, label: 'Explotar ingredientes', desc: 'Vista de capas con etiquetas', needsPhoto: false, color: 'blue' },
-  { id: 'generar', icon: Wand2, label: 'Generar desde cero', desc: 'Sin foto — desde nombre e ingredientes', needsPhoto: false, color: 'purple' },
-  { id: 'branded', icon: Palette, label: 'Branded ad', desc: 'Imagen con los colores y estilo de tu local', needsPhoto: false, color: 'green' },
+  { id: 'upgrade', icon: Camera, label: 'Mejorar foto', desc: 'Foto del celular → versión profesional', needsPhoto: true, needsIngredients: false, color: 'orange' },
+  { id: 'explotar', icon: Layers, label: 'Explotar ingredientes', desc: 'Foto del plato → vista de capas etiquetadas', needsPhoto: true, needsIngredients: true, color: 'blue' },
+  { id: 'generar', icon: Wand2, label: 'Generar desde cero', desc: 'Sin foto — desde nombre e ingredientes', needsPhoto: false, needsIngredients: true, color: 'purple' },
+  { id: 'branded', icon: Palette, label: 'Branded ad', desc: 'Imagen con los colores y estilo de tu local', needsPhoto: false, needsIngredients: false, color: 'green' },
 ]
 
 const COLOR_MAP = {
@@ -67,7 +68,7 @@ export default function ImagenesPage() {
   async function generate() {
     if (!itemName.trim()) return
     if (currentMode.needsPhoto && !photoBase64) return
-    if ((mode === 'explotar' || mode === 'generar') && !ingredients.trim()) return
+    if (currentMode.needsIngredients && !ingredients.trim()) return
 
     setLoading(true)
     setError(null)
@@ -156,32 +157,11 @@ export default function ImagenesPage() {
             />
           </div>
 
-          {/* Ingredientes (para explotar y generar) */}
-          {(mode === 'explotar' || mode === 'generar') && (
+          {/* Upload de foto (todos menos "generar desde cero") */}
+          {(currentMode.needsPhoto || mode === 'branded') && (
             <div>
               <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
-                Ingredientes *
-                {mode === 'explotar' && <span className="text-neutral-400 font-normal"> (uno por línea)</span>}
-              </label>
-              <textarea
-                value={ingredients}
-                onChange={e => setIngredients(e.target.value)}
-                placeholder={
-                  mode === 'explotar'
-                    ? 'Arroz\nNori\nSalmón fresco\nPalta\nCebolla de verdeo'
-                    : 'Milanesa de ternera, salsa napolitana, jamón cocido, queso mozzarella, aceitunas verdes'
-                }
-                className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
-                rows={mode === 'explotar' ? 5 : 3}
-              />
-            </div>
-          )}
-
-          {/* Upload de foto (para upgrade y branded) */}
-          {(mode === 'upgrade' || mode === 'branded') && (
-            <div>
-              <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
-                Foto del plato {mode === 'upgrade' ? '*' : '(opcional)'}
+                Foto del plato {currentMode.needsPhoto ? '*' : '(opcional)'}
               </label>
               {photoPreview ? (
                 <div className="relative rounded-xl overflow-hidden border border-neutral-200">
@@ -205,6 +185,32 @@ export default function ImagenesPage() {
             </div>
           )}
 
+          {/* Ingredientes (para explotar y generar) */}
+          {currentMode.needsIngredients && (
+            <div>
+              <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
+                Ingredientes *
+                {mode === 'explotar' && <span className="text-neutral-400 font-normal"> (uno por línea, en orden top → bottom)</span>}
+              </label>
+              <textarea
+                value={ingredients}
+                onChange={e => setIngredients(e.target.value)}
+                placeholder={
+                  mode === 'explotar'
+                    ? 'Pan brioche\nQueso cheddar\nMedallon de carne\nLechuga\nTomate\nCebolla'
+                    : 'Milanesa de ternera, salsa napolitana, jamón cocido, queso mozzarella, aceitunas verdes'
+                }
+                className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+                rows={mode === 'explotar' ? 5 : 3}
+              />
+              {mode === 'explotar' && (
+                <p className="text-xs text-neutral-400 mt-1.5">
+                  Tip: la IA usa la foto del plato como referencia y separa cada ingrediente en su propia capa.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Error */}
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -219,7 +225,7 @@ export default function ImagenesPage() {
               loading ||
               !itemName.trim() ||
               (currentMode.needsPhoto && !photoBase64) ||
-              ((mode === 'explotar' || mode === 'generar') && !ingredients.trim())
+              (currentMode.needsIngredients && !ingredients.trim())
             }
             className="w-full flex items-center justify-center gap-2 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -279,10 +285,10 @@ export default function ImagenesPage() {
               <Sparkles className="w-10 h-10 text-neutral-300 mb-3" />
               <p className="text-sm font-medium text-neutral-400">Tu imagen aparece acá</p>
               <p className="text-xs text-neutral-300 mt-2 leading-relaxed">
-                {mode === 'upgrade' && 'Subí la foto del plato y generamos una versión publicitaria profesional'}
-                {mode === 'explotar' && 'Escribí los ingredientes y generamos la vista de capas explotadas'}
-                {mode === 'generar' && 'Describí el plato y generamos la foto desde cero'}
-                {mode === 'branded' && 'Generamos una imagen que respeta los colores y estilo de tu local'}
+                {mode === 'upgrade' && 'Subí la foto del plato y generamos una versión retocada fotorrealista, conservando el plato exacto'}
+                {mode === 'explotar' && 'Subí la foto del plato y los ingredientes — armamos la vista exploded con cada capa etiquetada'}
+                {mode === 'generar' && 'Describí el plato y los ingredientes y generamos la foto desde cero'}
+                {mode === 'branded' && 'Generamos una imagen con los colores y estilo de tu local'}
               </p>
             </div>
           )}

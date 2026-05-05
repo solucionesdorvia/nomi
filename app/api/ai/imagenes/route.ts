@@ -18,26 +18,55 @@ const schema = z.object({
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const PROMPTS = {
+  // Mejora REALISTA: el resultado debe parecer una foto profesional del MISMO plato,
+  // no una version "AI mejorada" que se note. Conservador, no dramatico.
   upgrade: (name: string) => `
-You are a professional food photographer and retoucher.
-Use the attached food image as the exact product reference.
-Preserve the dish, ingredients, plating, colors, textures, and presentation exactly as they are.
-Create a premium restaurant advertising scene with the food as the hero centerpiece.
-Add: appetizing studio lighting, cinematic steam if suitable, glossy texture on sauces, realistic shadows, refined styling, and a premium neutral background.
-Make the final result crave-inducing, photoreal, ultra-detailed, HDR, ultra sharp.
-Suitable for restaurant menus, delivery apps, and social media marketing.
+This is a real photograph of food taken with a phone camera. Your task: produce a PHOTOREALISTIC retouch of this exact same dish, as if a professional food photographer had photographed the same plate in the same restaurant moments later, with better camera and lighting.
+
+ABSOLUTE RULES (do not violate):
+- The dish itself MUST be identical: same ingredients, same plating arrangement, same colors, same proportions, same shapes, same toppings, same garnish placement, same plate, same utensils. Do NOT add, remove, rearrange, or substitute anything on the plate.
+- The result must look like an UNEDITED PHOTOGRAPH, not an AI image, not a 3D render, not an illustration, not a stylized poster.
+- No fake glossy plastic-looking surfaces. No exaggerated saturation. No HDR halos. No oversharpening. No symmetric perfection. No cartoonish steam clouds.
+
+WHAT TO IMPROVE (subtly):
+- Lighting: soft natural-feeling directional light, like a professional restaurant photo near a window. Gentle highlights, soft natural shadows.
+- Background: clean and uncluttered. Out-of-focus restaurant table or neutral surface (wood, marble, linen). Remove obvious distractions like phone cables, hands, brand wrappers.
+- Color: realistic, true-to-life colors. Slight warmth boost is fine, no oversaturation.
+- Sharpness: crisp on the food, natural depth of field with slight background blur.
+- Texture: real food textures preserved (no plastic look on cheese, no shiny varnish on meats).
+
+GOAL: make this dish look as appetizing as it really is — through better light and framing, NOT by making it look like a CGI rendering.
+
 Food item: ${name}
 `.trim(),
 
+  // Explotar con foto como referencia: identifica los ingredientes visibles del plato real
+  // y los separa en capas flotantes con etiquetas. El plato sigue siendo el del usuario.
+  explotarWithPhoto: (name: string, ingredients: string) => `
+This is a real photograph of "${name}". Create a premium exploded-view food infographic where each visible ingredient of THIS exact dish is separated into a floating layer, stacked vertically with even spacing between layers.
+
+ABSOLUTE RULES:
+- Use the attached photo as the literal reference. Identify the actual ingredients present in the photo and separate them as layers in the order they appear in the dish (top layer = topping, bottom layer = base).
+- Each layer must look photorealistic, made of the SAME ingredient as in the photo (same color, same texture, same cut, same cooking state). Do NOT invent ingredients that are not in the original photo.
+- White or very light neutral background. Soft realistic shadows under each layer to give depth.
+- Each layer has a small clean text label to the side or below, in a minimal sans-serif font, naming the ingredient in Spanish (rioplatense Argentinian).
+- Style: editorial food infographic, premium clean look, like a high-end restaurant brand campaign.
+- Photoreal ingredients, NOT illustration or 3D render.
+
+User-provided ingredient list (use as guide; if some are not visible in the photo, omit them; if visible ingredients are missing from the list, include them anyway with proper Spanish names): ${ingredients || '(no provista — usa solo lo que veas en la foto)'}
+
+Output a single composition, vertical stack of floating layers with labels.
+`.trim(),
+
+  // Explotar SIN foto (fallback si el user no sube imagen): generacion pura como antes.
   explotar: (name: string, ingredients: string) => `
 Create a premium exploded-view food infographic illustration of "${name}".
 Show each ingredient as a separate floating layer, stacked vertically with slight spacing between layers.
-Each layer should have a clean label with the ingredient name in a minimal sans-serif font.
-White or very light neutral background.
-Style: clean, modern, editorial food illustration.
-Premium quality, suitable for a high-end restaurant menu or brand campaign.
-Ingredients to show as layers: ${ingredients}
-Make it look like a professional food brand advertisement.
+Each layer should have a clean label with the ingredient name in a minimal sans-serif font (Spanish, rioplatense).
+White or very light neutral background. Soft realistic shadows.
+Style: clean, modern, editorial food infographic. Photoreal ingredients, not illustration.
+Premium quality, suitable for a high-end restaurant menu.
+Ingredients to show as layers (in order from top to bottom): ${ingredients}
 `.trim(),
 
   generar: (name: string, ingredients: string) => `
@@ -157,15 +186,17 @@ export async function POST(req: Request) {
     const body = await req.json()
     const data = schema.parse(body)
 
-    if ((data.mode === 'upgrade' || data.mode === 'branded') && data.imageBase64) {
-      if (data.imageBase64.length > MAX_BASE64_BYTES) {
-        return NextResponse.json({ error: 'La imagen supera 25MB. Subi una version mas chica.' }, { status: 413 })
-      }
+    // Validacion de tamaño max para todas las imagenes que vienen del cliente.
+    if (data.imageBase64 && data.imageBase64.length > MAX_BASE64_BYTES) {
+      return NextResponse.json({ error: 'La imagen supera 25MB. Subi una version mas chica.' }, { status: 413 })
     }
     if (data.mode === 'upgrade' && !data.imageBase64) {
       return NextResponse.json({ error: 'Subi una foto para usar el modo "Mejorar foto"' }, { status: 400 })
     }
-    if ((data.mode === 'explotar' || data.mode === 'generar') && !data.ingredients?.trim()) {
+    if (data.mode === 'explotar' && !data.imageBase64) {
+      return NextResponse.json({ error: 'Subi una foto del plato para usar el modo "Explotar ingredientes"' }, { status: 400 })
+    }
+    if (data.mode === 'generar' && !data.ingredients?.trim()) {
       return NextResponse.json({ error: 'Cargá los ingredientes para este modo' }, { status: 400 })
     }
 
@@ -185,7 +216,9 @@ export async function POST(req: Request) {
         prompt = PROMPTS.upgrade(itemName)
         break
       case 'explotar':
-        prompt = PROMPTS.explotar(itemName, ingredients)
+        prompt = data.imageBase64
+          ? PROMPTS.explotarWithPhoto(itemName, ingredients)
+          : PROMPTS.explotar(itemName, ingredients)
         break
       case 'generar':
         prompt = PROMPTS.generar(itemName, ingredients)
@@ -201,8 +234,10 @@ export async function POST(req: Request) {
         break
     }
 
+    // Cualquier modo con foto adjunta usa images.edit (foto como referencia).
+    // Sin foto cae a images.generate.
     let url: string | null = null
-    if ((data.mode === 'upgrade' || data.mode === 'branded') && data.imageBase64) {
+    if (data.imageBase64 && (data.mode === 'upgrade' || data.mode === 'branded' || data.mode === 'explotar')) {
       url = await editWithFallback(prompt, data.imageBase64)
     } else {
       url = await generateWithFallback(prompt)
