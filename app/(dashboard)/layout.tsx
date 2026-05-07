@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
 import {
@@ -26,15 +26,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const path = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  // Cierra el drawer al navegar a una nueva ruta.
-  useEffect(() => { setDrawerOpen(false) }, [path])
+  // Cierra el drawer al navegar a una nueva ruta (transición no urgente para el linter).
+  useEffect(() => {
+    startTransition(() => setDrawerOpen(false))
+  }, [path])
 
   // Cuando el drawer esta abierto en mobile, bloqueamos el scroll del body.
   useEffect(() => {
     if (drawerOpen) {
       document.body.style.overflow = 'hidden'
-      return () => { document.body.style.overflow = '' }
+      return () => {
+        document.body.style.overflow = ''
+      }
     }
+  }, [drawerOpen])
+
+  useEffect(() => {
+    if (!drawerOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [drawerOpen])
 
   const currentLabel = nav.find(n => path === n.href || (n.href !== '/dashboard' && path.startsWith(n.href)))?.label ?? 'Dashboard'
@@ -44,8 +57,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Topbar mobile (visible solo en < md) */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-neutral-200 h-14 flex items-center justify-between px-4">
         <button
+          type="button"
           onClick={() => setDrawerOpen(true)}
-          className="p-2 -ml-2 rounded-lg text-neutral-700 hover:bg-neutral-100"
+          className="-ml-2 rounded-lg p-2 text-neutral-700 hover:bg-neutral-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[#FF6B35]"
+          aria-expanded={drawerOpen}
+          aria-controls="dashboard-nav-drawer"
           aria-label="Abrir menú"
         >
           <Menu className="w-5 h-5" />
@@ -65,11 +81,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div
           className="md:hidden fixed inset-0 z-40 bg-black/50"
           onClick={() => setDrawerOpen(false)}
+          aria-hidden
         />
       )}
 
       {/* Sidebar / Drawer */}
       <aside
+        id="dashboard-nav-drawer"
         className={cn(
           'bg-white border-r border-neutral-200 flex flex-col fixed md:sticky top-0 left-0 h-screen z-50 transition-transform duration-300',
           'w-64 md:w-60',
@@ -82,8 +100,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="ml-0.5 text-xl text-orange-500 font-semibold">.</span>
           </div>
           <button
+            type="button"
             onClick={() => setDrawerOpen(false)}
-            className="md:hidden p-2 -mr-2 rounded-lg text-neutral-500 hover:bg-neutral-100"
+            className="-mr-2 rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 md:hidden focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[#FF6B35]"
             aria-label="Cerrar menú"
           >
             <X className="w-5 h-5" />
@@ -97,7 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={href}
                 href={href}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg text-sm transition-colors',
+                  'flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B35]/55 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
                   active ? 'bg-orange-50 text-orange-600 font-medium' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
                 )}
               >

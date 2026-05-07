@@ -1,145 +1,61 @@
 # NEXT STEPS — Nomi
 
-Estado del proyecto al cierre de la sesion con Claude Code.
-Continuar desde aca en Cursor.
+Handoff para continuar en Cursor. Última actualización: proyecto desplegado en Railway, app mobile-first.
 
 ---
 
-## [x] Hecho
+## [x] Ya hecho (resumen)
 
-- `npm install` corrido (412 paquetes)
-- `npx prisma generate` OK
-- 7 errores de TS / compatibilidad arreglados (ver "Cambios aplicados" abajo)
-- `npm run build` pasa limpio (0 errores TS, 24 rutas generadas)
-- Repo subido a `https://github.com/solucionesdorvia/nomi` (branch `main`)
+| Área | Estado |
+|------|--------|
+| Build / TypeScript | `npm run build` limpio |
+| Base de datos | Prisma + PostgreSQL (Railway); scripts `db:push` / `db:studio` con `dotenv-cli` |
+| Auth | Clerk; `proxy.ts` (Next 16) con rutas públicas incl. `/api/uploadthing(.*)` |
+| Uploads | Uploadthing v7+ (`UPLOADTHING_TOKEN`), `ImageUpload` con SDK y timeout |
+| Stripe | Cliente lazy `getStripe()` para no romper build sin key |
+| Menú público | `/m/[slug]`, `useMenuTracking(slug)`, tema `getMenuTheme()` para contraste |
+| Branding | Logo, colores, fonts; extracción de paleta (`node-vibrant`); inspiración multi-imagen |
+| Pósters / fichas | `GET /api/menu-poster`, `GET /api/dish-card` (OG images) |
+| Imágenes IA | `/dashboard/imagenes` — modos con OpenAI + Replicate (Flux donde aplica) |
+| UI | Dashboard con drawer mobile, páginas responsive, landing ajustada |
 
-## [ ] Pendiente
-
-### 1. Completar `.env.local` con credenciales reales
-
-Copiar `.env.example` -> `.env.local` y reemplazar los placeholders. Sin esto
-nada funciona en runtime. Servicios a dar de alta:
-
-| Variable | Servicio | Donde |
-|---|---|---|
-| `DATABASE_URL` | Railway PostgreSQL | railway.app -> New Project -> + PostgreSQL -> Connect |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` | Clerk | clerk.com -> tu app -> API Keys |
-| `CLERK_WEBHOOK_SECRET` | Clerk | clerk.com -> Webhooks -> Add Endpoint a `/api/webhooks/clerk` (eventos: `user.created`, `user.deleted`) -> Signing Secret |
-| `UPLOADTHING_SECRET` + `UPLOADTHING_APP_ID` | Uploadthing | uploadthing.com -> API Keys |
-| `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe | stripe.com -> Developers -> API Keys |
-| `STRIPE_WEBHOOK_SECRET` | Stripe (local) | `stripe listen --forward-to localhost:3000/api/stripe/webhook` |
-| `STRIPE_PRICE_STARTER` / `_PRO` / `_MULTI` | Stripe | Crear 3 productos recurrentes ARS ($8.000 / $18.000 / $35.000) y copiar los `price_...` |
-| `OPENAI_API_KEY` | OpenAI | platform.openai.com -> API Keys |
-| `REPLICATE_API_TOKEN` | Replicate | replicate.com -> Account -> Tokens |
-| `RESEND_API_KEY` | Resend | resend.com -> API Keys |
-
-Stripe en Argentina puede requerir cuenta en USD. Si no funciona, considerar
-MercadoPago como alternativa.
-
-### 2. Pushear schema a la DB
-
-Con `DATABASE_URL` real cargada:
-
-```bash
-npx prisma db push
-```
-
-### 3. Levantar el dev server
-
-```bash
-npm run dev
-```
-
-Abre en http://localhost:3000
-
-### 4. Configurar webhooks externos
-
-**Clerk** (paso 7 del prompt original):
-- Dashboard de Clerk -> Webhooks -> Add Endpoint
-- URL: `https://TU_DOMINIO/api/webhooks/clerk` (o usar ngrok local)
-- Eventos: `user.created`, `user.deleted`
-- Copiar Signing Secret -> `CLERK_WEBHOOK_SECRET` en `.env.local`
-
-**Stripe** (paso 8 — local dev):
-```bash
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
-Copiar el secret que imprime -> `STRIPE_WEBHOOK_SECRET`.
-
-Para production, crear el endpoint en Stripe Dashboard -> Developers -> Webhooks
-apuntando a `https://TU_DOMINIO/api/stripe/webhook`.
-
-### 5. Crear los 3 precios en Stripe (paso 9)
-
-Stripe Dashboard -> Products -> + Add Product, x3:
-
-| Plan | Precio | Recurrencia |
-|---|---|---|
-| Starter | $8.000 ARS | Mensual |
-| Pro | $18.000 ARS | Mensual |
-| Multi | $35.000 ARS | Mensual |
-
-Copiar cada `price_...` ID a la variable correspondiente.
-
-### 6. Test manual del flujo (paso 10)
-
-- [ ] Registrarse -> Business se crea automaticamente en DB (verifica que el webhook de Clerk dispara)
-- [ ] Configurar branding -> preview en tiempo real funciona
-- [ ] Agregar categoria y plato
-- [ ] Ver menu publico en `/m/[slug]`
-- [ ] Descargar QR
-- [ ] Generar descripcion con IA (boton dentro del modal de plato)
-- [ ] Generar contenido para redes (`/dashboard/social`)
-- [ ] Ver analytics con datos reales
-- [ ] Probar checkout de Stripe (modo test)
-
-### 7. Deploy en Railway (paso 11)
-
-1. Conectar el repo de GitHub a Railway (`solucionesdorvia/nomi`)
-2. Agregar PostgreSQL como plugin (si no esta ya)
-3. Settings -> Variables -> pegar todas las variables de `.env.local` (excepto la `DATABASE_URL` local — Railway la inyecta solo)
-4. Settings -> Domain -> generar dominio
-5. Actualizar `NEXT_PUBLIC_APP_URL` con el dominio real
-6. Redeploy
-7. Volver al paso 4: actualizar la URL del webhook de Clerk a `https://TU_DOMINIO_RAILWAY/api/webhooks/clerk`
+Repo: `https://github.com/solucionesdorvia/nomi` · Deploy ejemplo: configurar `NEXT_PUBLIC_APP_URL` al dominio real de Railway.
 
 ---
 
-## Cambios aplicados durante la sesion
+## [ ] Pendiente operativo (cuando decidas monetizar / producción fuerte)
 
-Para que la build pasara con las versiones de `package.json`:
+### 1. Variables de entorno en producción
 
-| Archivo | Cambio | Razon |
-|---|---|---|
-| `package.json` | `prisma` y `@prisma/client` ^7 -> ^6 | Prisma 7 requiere `prisma.config.ts` y rompe `url` en `schema.prisma` |
-| `app/(dashboard)/dashboard/social/page.tsx` | `Instagram` -> `Camera` | `lucide-react` v1.14 no exporta `Instagram` |
-| `app/(dashboard)/layout.tsx` | Removido `afterSignOutUrl` de `<UserButton>` | Clerk 7 lo saco como prop directa; ahora se controla con `NEXT_PUBLIC_CLERK_AFTER_SIGN_OUT_URL` |
-| `lib/stripe.ts` | `apiVersion: '2024-11-20.acacia'` -> `'2026-04-22.dahlia'` | Stripe SDK v22 |
-| `app/api/ai/enhance/route.ts` | Cast seguro del output de Replicate | `replicate.run` devuelve `string \| string[]` |
-| `app/api/categories/[id]/route.ts` | `params: { id }` -> `params: Promise<{ id }>` + `await params` | Next 16 async params |
-| `app/api/items/[id]/route.ts` | idem | idem |
-| `app/m/[slug]/page.tsx` | `params: { slug }` -> `params: Promise<{ slug }>` + `await params` | idem |
+En Railway → Variables del servicio Next, cargar todo lo que usás en local (misma lista que `.env.example`). **No** commitear `.env.local`.
+
+- `NEXT_PUBLIC_APP_URL` = URL pública del deploy (sin barra final inconsistente).
+- Webhook Clerk: URL `https://TU_DOMINIO/api/webhooks/clerk`, eventos `user.created`, `user.deleted` → `CLERK_WEBHOOK_SECRET`.
+- Si usás Stripe: `STRIPE_*` + webhook `https://TU_DOMINIO/api/stripe/webhook` → `STRIPE_WEBHOOK_SECRET`.
+- Crear en Stripe Dashboard los 3 precios recurrentes ARS y pegar `STRIPE_PRICE_STARTER` / `_PRO` / `_MULTI`.
+
+Stripe en Argentina puede complicarse: alternativa futura **MercadoPago** (no implementada aún).
+
+### 2. Checklist manual post-deploy
+
+- [ ] Registro → `Business` en DB (webhook Clerk OK)
+- [ ] Branding guarda y se refleja en menú público
+- [ ] Categorías / platos / QR / IA descripción / social / analytics
+- [ ] Subida de logo e imágenes (no queda colgada)
+- [ ] Póster menú + ficha de plato descargables
+- [ ] (Opcional) Checkout Stripe test
 
 ---
 
-## Notas / decisiones abiertas
+## Cambios aplicados (histórico útil para debug)
 
-- ~~**Middleware deprecation warning**~~ RESUELTO: `middleware.ts` renombrado
-  a `proxy.ts` (Next 16 file convention). El default export sigue funcionando
-  con `clerkMiddleware()`. Build sin warnings.
+Los primeros fixes de la sesión original siguen válidos como referencia: Prisma 6, Clerk `UserButton`, Stripe API version, `params` async en Next 16, cast Replicate enhance.
 
-- ~~**Uploadthing**~~ RESUELTO: `components/dashboard/ImageUpload.tsx` ahora usa
-  `useUploadThing()` del SDK oficial (`@uploadthing/react`) via el helper tipado
-  en `lib/uploadthing-client.ts`. Devuelve `ufsUrl` (canonical en v7+) con
-  fallback a `url`. Maneja error con mensaje en UI.
+Fixes posteriores no listados línea por línea: `middleware` → `proxy.ts`, rutas públicas Uploadthing, integración SDK upload, tema semántico, posters OG, rutas IA imágenes, Flux vía Replicate, responsive global.
 
-- ~~**Analytics tracking**~~ RESUELTO: `MenuClient` ahora recibe `slug` como
-  prop desde `app/m/[slug]/page.tsx` y llama a `useMenuTracking(slug)` al
-  montar.
+---
 
-- **CRLF/LF warnings al hacer git add**: normal en Windows. Si molesta,
-  agregar `.gitattributes` con `* text=auto eol=lf`.
+## Notas
 
-- **Identidad git del primer commit**: `solucionesdorvia
-  <solucionesdorvia@users.noreply.github.com>` (config local al repo, no
-  global). Cambiar con `git config user.email TU_EMAIL` si querias otra.
+- **CRLF/LF**: si molesta en Windows, `.gitattributes` con `* text=auto eol=lf`.
+- **Git author del repo**: `solucionesdorvia` — cambiar con `git config user.email` en el clone si hace falta.

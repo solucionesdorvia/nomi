@@ -14,15 +14,18 @@ type Plan = {
 export default function SettingsClient({
   currentPlan,
   plans,
+  stripeConfigured,
 }: {
   currentPlan: string
   plans: Record<string, Plan>
+  stripeConfigured: boolean
 }) {
   const [loading, setLoading] = useState<string | null>(null)
   const params = useSearchParams()
   const success = params.get('success')
 
   async function upgrade(planId: string) {
+    if (!stripeConfigured) return
     setLoading(planId)
     try {
       const res = await fetch('/api/stripe/checkout', {
@@ -50,6 +53,24 @@ export default function SettingsClient({
             <Check className="w-4 h-4 text-green-600" />
           </div>
           <p className="text-sm text-green-800 font-medium">¡Pago exitoso! Tu plan fue actualizado.</p>
+        </div>
+      )}
+
+      {!stripeConfigured && (
+        <div
+          className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900"
+          role="status"
+        >
+          <p className="font-medium mb-1">Pagos con tarjeta no configurados</p>
+          <p className="text-amber-800/90">
+            Los botones de suscripción están deshabilitados hasta que en el servidor existan{' '}
+            <code className="text-xs bg-amber-100/80 px-1 py-0.5 rounded">
+              STRIPE_SECRET_KEY
+            </code>
+            , las claves públicas y los tres{' '}
+            <code className="text-xs bg-amber-100/80 px-1 py-0.5 rounded">STRIPE_PRICE_*</code>. Podés usar
+            el resto de Nomi sin Stripe.
+          </p>
         </div>
       )}
 
@@ -112,7 +133,8 @@ export default function SettingsClient({
                   ) : (
                     <button
                       onClick={() => upgrade(plan.id)}
-                      disabled={!!loading}
+                      disabled={!!loading || !stripeConfigured}
+                      title={!stripeConfigured ? 'Configurá Stripe en el servidor' : undefined}
                       className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-60 sm:w-auto w-full ${
                         isPro
                           ? 'bg-orange-500 text-white hover:bg-orange-600'

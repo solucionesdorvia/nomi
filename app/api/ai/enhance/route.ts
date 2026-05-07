@@ -9,17 +9,23 @@ const schema = z.object({
   itemId: z.string(),
 })
 
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-})
-
 export async function POST(req: Request) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const token = process.env.REPLICATE_API_TOKEN
+    if (!token) {
+      return NextResponse.json(
+        { error: 'REPLICATE_API_TOKEN no configurada. Agregala en Railway → Variables.' },
+        { status: 503 },
+      )
+    }
+
     const body = await req.json()
     const { imageUrl, itemId } = schema.parse(body)
+
+    const replicate = new Replicate({ auth: token })
 
     // Usar Real-ESRGAN para mejorar calidad de foto + claridad
     // Modelo: nightmareai/real-esrgan - upscale + enhance
